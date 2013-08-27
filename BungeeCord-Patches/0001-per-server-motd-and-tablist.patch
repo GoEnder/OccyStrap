@@ -1,0 +1,399 @@
+From 8f81ee6710921f920189e4dee6df95eef3d2f33f Mon Sep 17 00:00:00 2001
+From: Robin Lambertz <robinlambertz.dev@gmail.com>
+Date: Sat, 17 Aug 2013 00:16:36 +0100
+Subject: [PATCH] per-server motd and tablist
+
+
+diff --git a/api/src/main/java/net/md_5/bungee/api/ProxyServer.java b/api/src/main/java/net/md_5/bungee/api/ProxyServer.java
+index 1344f77..9d631bc 100644
+--- a/api/src/main/java/net/md_5/bungee/api/ProxyServer.java
++++ b/api/src/main/java/net/md_5/bungee/api/ProxyServer.java
+@@ -14,6 +14,7 @@ import net.md_5.bungee.api.connection.ProxiedPlayer;
+ import net.md_5.bungee.api.plugin.Plugin;
+ import net.md_5.bungee.api.scheduler.TaskScheduler;
+ import net.md_5.bungee.api.tab.CustomTabList;
++import net.md_5.bungee.api.tab.TabListHandler;
+ 
+ public abstract class ProxyServer
+ {
+@@ -190,9 +191,11 @@ public abstract class ProxyServer
+      * @param address connectable Minecraft address + port of the server
+      * @param motd the motd when used as a forced server
+      * @param restricted whether the server info restricted property will be set
++     * @param motdcount the way the current player count should be made in motd
++     * @param maxplayers if motdcount is global, the max amount of players to show
+      * @return the constructed instance
+      */
+-    public abstract ServerInfo constructServerInfo(String name, InetSocketAddress address, String motd, boolean restricted);
++    public abstract ServerInfo constructServerInfo(String name, InetSocketAddress address, String motd, boolean restricted, Class<? extends TabListHandler> tablist, ServerInfo.MotdCount motdcount, int maxplayers );
+ 
+     /**
+      * Returns the console overlord for this proxy. Being the console, this
+diff --git a/api/src/main/java/net/md_5/bungee/api/config/ListenerInfo.java b/api/src/main/java/net/md_5/bungee/api/config/ListenerInfo.java
+index 1ec6d5c..2b329e5 100644
+--- a/api/src/main/java/net/md_5/bungee/api/config/ListenerInfo.java
++++ b/api/src/main/java/net/md_5/bungee/api/config/ListenerInfo.java
+@@ -18,14 +18,6 @@ public class ListenerInfo
+      */
+     private final InetSocketAddress host;
+     /**
+-     * Displayed MOTD.
+-     */
+-    private final String motd;
+-    /**
+-     * Max amount of slots displayed on the ping page.
+-     */
+-    private final int maxPlayers;
+-    /**
+      * Number of players to be shown on the tab list.
+      */
+     private final int tabListSize;
+@@ -49,10 +41,6 @@ public class ListenerInfo
+      */
+     private final Map<String, String> forcedHosts;
+     /**
+-     * Class used to build tab lists for this player.
+-     */
+-    private final Class<? extends TabListHandler> tabList;
+-    /**
+      * Whether to set the local address when connecting to servers.
+      */
+     private final boolean setLocalAddress;
+diff --git a/api/src/main/java/net/md_5/bungee/api/config/ServerInfo.java b/api/src/main/java/net/md_5/bungee/api/config/ServerInfo.java
+index fa512e3..f172ed8 100644
+--- a/api/src/main/java/net/md_5/bungee/api/config/ServerInfo.java
++++ b/api/src/main/java/net/md_5/bungee/api/config/ServerInfo.java
+@@ -6,6 +6,7 @@ import net.md_5.bungee.api.Callback;
+ import net.md_5.bungee.api.CommandSender;
+ import net.md_5.bungee.api.ServerPing;
+ import net.md_5.bungee.api.connection.ProxiedPlayer;
++import net.md_5.bungee.api.tab.TabListHandler;
+ 
+ /**
+  * Class used to represent a server to connect to.
+@@ -44,6 +45,26 @@ public interface ServerInfo
+     String getMotd();
+ 
+     /**
++     * Returns whether the current players in motd should represent all players
++     * connected to proxy or just to that server.
++     * 
++     * @return 
++     */
++    MotdCount getMotdCount();
++
++    /**
++     * Returns the max amount of slots displayed on the ping page.
++     * 
++     * @returns the max amount of players
++     */
++    int getMaxPlayers();
++
++    /**
++     * Class used to build tab lists for this player.
++     */
++    Class<? extends TabListHandler> getTabList();
++
++    /**
+      * Whether the player can access this server. It will only return false when
+      * the player has no permission and this server is restricted.
+      *
+@@ -66,4 +87,8 @@ public interface ServerInfo
+      * @param callback the callback to call when the count has been retrieved.
+      */
+     void ping(Callback<ServerPing> callback);
++
++    public enum MotdCount {
++        GLOBAL, SERVER
++    }
+ }
+diff --git a/proxy/src/main/java/net/md_5/bungee/BungeeCord.java b/proxy/src/main/java/net/md_5/bungee/BungeeCord.java
+index ab1553d..8e114c8 100644
+--- a/proxy/src/main/java/net/md_5/bungee/BungeeCord.java
++++ b/proxy/src/main/java/net/md_5/bungee/BungeeCord.java
+@@ -54,6 +54,7 @@ import net.md_5.bungee.api.connection.ProxiedPlayer;
+ import net.md_5.bungee.api.plugin.Plugin;
+ import net.md_5.bungee.api.plugin.PluginManager;
+ import net.md_5.bungee.api.tab.CustomTabList;
++import net.md_5.bungee.api.tab.TabListHandler;
+ import net.md_5.bungee.command.*;
+ import net.md_5.bungee.config.YamlConfig;
+ import net.md_5.bungee.log.LoggingOutputStream;
+@@ -501,9 +502,9 @@ public class BungeeCord extends ProxyServer
+     }
+ 
+     @Override
+-    public ServerInfo constructServerInfo(String name, InetSocketAddress address, String motd, boolean restricted)
++    public ServerInfo constructServerInfo(String name, InetSocketAddress address, String motd, boolean restricted, Class<? extends TabListHandler> tablist, ServerInfo.MotdCount motdcount, int maxplayers )
+     {
+-        return new BungeeServerInfo( name, address, motd, restricted );
++        return new BungeeServerInfo( name, address, motd, restricted, motdcount, maxplayers, tablist );
+     }
+ 
+     @Override
+diff --git a/proxy/src/main/java/net/md_5/bungee/BungeeServerInfo.java b/proxy/src/main/java/net/md_5/bungee/BungeeServerInfo.java
+index ea533a1..274080b 100644
+--- a/proxy/src/main/java/net/md_5/bungee/BungeeServerInfo.java
++++ b/proxy/src/main/java/net/md_5/bungee/BungeeServerInfo.java
+@@ -22,6 +22,7 @@ import net.md_5.bungee.api.ServerPing;
+ import net.md_5.bungee.api.config.ServerInfo;
+ import net.md_5.bungee.api.connection.ProxiedPlayer;
+ import net.md_5.bungee.api.connection.Server;
++import net.md_5.bungee.api.tab.TabListHandler;
+ import net.md_5.bungee.connection.PingHandler;
+ import net.md_5.bungee.netty.HandlerBoss;
+ import net.md_5.bungee.netty.PipelineUtils;
+@@ -43,6 +44,12 @@ public class BungeeServerInfo implements ServerInfo
+     private final boolean restricted;
+     @Getter
+     private final Queue<DefinedPacket> packetQueue = new LinkedList<>();
++    @Getter
++    private final MotdCount motdCount;
++    @Getter
++    private final int maxPlayers;
++    @Getter
++    private final Class<? extends TabListHandler> tabList;
+ 
+     @Synchronized("players")
+     public void addPlayer(ProxiedPlayer player)
+diff --git a/proxy/src/main/java/net/md_5/bungee/ServerConnector.java b/proxy/src/main/java/net/md_5/bungee/ServerConnector.java
+index e3d3124..629ca10 100644
+--- a/proxy/src/main/java/net/md_5/bungee/ServerConnector.java
++++ b/proxy/src/main/java/net/md_5/bungee/ServerConnector.java
+@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
+ import net.md_5.bungee.api.ChatColor;
+ import net.md_5.bungee.api.ProxyServer;
+ import net.md_5.bungee.api.config.ServerInfo;
++import net.md_5.bungee.api.connection.ProxiedPlayer;
+ import net.md_5.bungee.api.event.ServerConnectedEvent;
+ import net.md_5.bungee.api.event.ServerKickEvent;
+ import net.md_5.bungee.api.event.ServerSwitchEvent;
+@@ -33,13 +34,19 @@ import net.md_5.bungee.protocol.MinecraftOutput;
+ import net.md_5.bungee.protocol.packet.DefinedPacket;
+ import net.md_5.bungee.protocol.packet.Packet1Login;
+ import net.md_5.bungee.protocol.packet.Packet9Respawn;
++import net.md_5.bungee.protocol.packet.PacketC9PlayerListItem;
+ import net.md_5.bungee.protocol.packet.PacketCEScoreboardObjective;
+ import net.md_5.bungee.protocol.packet.PacketD1Team;
+ import net.md_5.bungee.protocol.packet.PacketFAPluginMessage;
+ import net.md_5.bungee.protocol.packet.PacketFCEncryptionResponse;
+ import net.md_5.bungee.protocol.packet.PacketFDEncryptionRequest;
++import net.md_5.bungee.protocol.packet.PacketFEPing;
+ import net.md_5.bungee.protocol.packet.PacketFFKick;
+ import net.md_5.bungee.protocol.packet.forge.Forge1Login;
++import net.md_5.bungee.tab.Custom;
++import net.md_5.bungee.tab.Global;
++import net.md_5.bungee.tab.GlobalPing;
++import net.md_5.bungee.tab.ServerUnique;
+ 
+ @RequiredArgsConstructor
+ public class ServerConnector extends PacketHandler
+@@ -156,7 +163,7 @@ public class ServerConnector extends PacketHandler
+                 user.unsafe().sendPacket( modLogin );
+ 
+                 MinecraftOutput out = new MinecraftOutput();
+-                out.writeStringUTF8WithoutLengthHeaderBecauseDinnerboneStuffedUpTheMCBrandPacket(ProxyServer.getInstance().getName() + " (" + ProxyServer.getInstance().getVersion() + ")" );
++                out.writeStringUTF8WithoutLengthHeaderBecauseDinnerboneStuffedUpTheMCBrandPacket( ProxyServer.getInstance().getName() + " (" + ProxyServer.getInstance().getVersion() + ")" );
+                 user.unsafe().sendPacket( new PacketFAPluginMessage( "MC|Brand", out.toArray() ) );
+             } else
+             {
+@@ -173,6 +180,17 @@ public class ServerConnector extends PacketHandler
+                 }
+                 serverScoreboard.clear();
+ 
++                if ( !( user.getTabList().getClass().isAssignableFrom( Custom.class ) ) )
++                {
++                    for ( ProxiedPlayer p : BungeeCord.getInstance().getPlayers() )
++                    {
++                        user.unsafe().sendPacket( new PacketC9PlayerListItem( p.getDisplayName(), false, (short) 9999 ) );
++                    }
++                } else
++                {
++                    ( (Custom) user.getTabList() ).clear();
++                }
++
+                 user.sendDimensionSwitch();
+ 
+                 user.setServerEntityId( login.getEntityId() );
+@@ -183,6 +201,11 @@ public class ServerConnector extends PacketHandler
+                 user.getServer().disconnect( "Quitting" );
+             }
+ 
++            user.setTabList( server.getInfo().getTabList() );
++            if ( user.getServer() == null ) {
++                user.getTabList().onConnect();
++            }
++            
+             // TODO: Fix this?
+             if ( !user.isActive() )
+             {
+diff --git a/proxy/src/main/java/net/md_5/bungee/UserConnection.java b/proxy/src/main/java/net/md_5/bungee/UserConnection.java
+index 584feab..71d1782 100644
+--- a/proxy/src/main/java/net/md_5/bungee/UserConnection.java
++++ b/proxy/src/main/java/net/md_5/bungee/UserConnection.java
+@@ -36,6 +36,7 @@ import net.md_5.bungee.protocol.packet.Packet3Chat;
+ import net.md_5.bungee.protocol.packet.PacketCCSettings;
+ import net.md_5.bungee.protocol.packet.PacketFAPluginMessage;
+ import net.md_5.bungee.protocol.packet.PacketFFKick;
++import net.md_5.bungee.reconnect.AbstractReconnectManager;
+ import net.md_5.bungee.util.CaseInsensitiveSet;
+ 
+ @RequiredArgsConstructor
+@@ -103,14 +104,6 @@ public final class UserConnection implements ProxiedPlayer
+     public void init()
+     {
+         this.displayName = name;
+-        try
+-        {
+-            this.tabList = getPendingConnection().getListener().getTabList().getDeclaredConstructor().newInstance();
+-        } catch ( ReflectiveOperationException ex )
+-        {
+-            throw new RuntimeException( ex );
+-        }
+-        this.tabList.init( this );
+ 
+         Collection<String> g = bungee.getConfigurationAdapter().getGroups( name );
+         for ( String s : g )
+@@ -119,6 +112,19 @@ public final class UserConnection implements ProxiedPlayer
+         }
+     }
+ 
++    //@Override
++    public void setTabList(Class<? extends TabListHandler> tablist)
++    {
++        try
++        {
++            this.tabList = tablist.getDeclaredConstructor().newInstance();
++            this.tabList.init( this );
++        } catch ( ReflectiveOperationException ex )
++        {
++            throw new RuntimeException( ex );
++        }
++    }
++
+     @Override
+     public void setTabList(TabListHandler tabList)
+     {
+diff --git a/proxy/src/main/java/net/md_5/bungee/config/YamlConfig.java b/proxy/src/main/java/net/md_5/bungee/config/YamlConfig.java
+index e88970d..fb538e3 100644
+--- a/proxy/src/main/java/net/md_5/bungee/config/YamlConfig.java
++++ b/proxy/src/main/java/net/md_5/bungee/config/YamlConfig.java
+@@ -21,6 +21,7 @@ import net.md_5.bungee.api.ProxyServer;
+ import net.md_5.bungee.api.config.ConfigurationAdapter;
+ import net.md_5.bungee.api.config.ListenerInfo;
+ import net.md_5.bungee.api.config.ServerInfo;
++import net.md_5.bungee.api.config.ServerInfo.MotdCount;
+ import net.md_5.bungee.api.tab.TabListHandler;
+ import net.md_5.bungee.tab.Global;
+ import net.md_5.bungee.tab.GlobalPing;
+@@ -170,10 +171,17 @@ public class YamlConfig implements ConfigurationAdapter
+             Map<String, Object> val = entry.getValue();
+             String name = entry.getKey();
+             String addr = get( "address", "localhost:25565", val );
+-            String motd = ChatColor.translateAlternateColorCodes( '&', get( "motd", "&1Just another BungeeCord - Forced Host", val ) );
++            String motd = ChatColor.translateAlternateColorCodes( '&', get( "ping.motd", "&1Just another BungeeCord - Forced Host", val ) );
++            MotdCount motdcount = MotdCount.valueOf( get( "ping.player_count", "GLOBAL", val ) );
++            int maxplayers = get( "ping.max_players", 1, val );
+             boolean restricted = get( "restricted", false, val );
+             InetSocketAddress address = Util.getAddr( addr );
+-            ServerInfo info = ProxyServer.getInstance().constructServerInfo( name, address, motd, restricted );
++            String tabListName = get( "tab_list", "GLOBAL_PING", val );
++            DefaultTabList value = DefaultTabList.valueOf( tabListName );
++            if ( value == null ) {
++                value = DefaultTabList.GLOBAL_PING;
++            }
++            ServerInfo info = ProxyServer.getInstance().constructServerInfo( name, address, motd, restricted, value.clazz, motdcount, maxplayers );
+             ret.put( name, info );
+         }
+ 
+@@ -195,26 +203,16 @@ public class YamlConfig implements ConfigurationAdapter
+ 
+         for ( Map<String, Object> val : base )
+         {
+-            String motd = get( "motd", "&1Another Bungee server", val );
+-            motd = ChatColor.translateAlternateColorCodes( '&', motd );
+-
+-            int maxPlayers = get( "max_players", 1, val );
++            String host = get( "host", "0.0.0.0:25577", val );
+             String defaultServer = get( "default_server", "lobby", val );
+             String fallbackServer = get( "fallback_server", defaultServer, val );
+             boolean forceDefault = get( "force_default_server", false, val );
+-            String host = get( "host", "0.0.0.0:25577", val );
+             int tabListSize = get( "tab_size", 60, val );
+             InetSocketAddress address = Util.getAddr( host );
+             Map<String, String> forced = new CaseInsensitiveMap<>( get( "forced_hosts", forcedDef, val ) );
+-            String tabListName = get( "tab_list", "GLOBAL_PING", val );
+-            DefaultTabList value = DefaultTabList.valueOf( tabListName.toUpperCase() );
+-            if ( value == null )
+-            {
+-                value = DefaultTabList.GLOBAL_PING;
+-            }
+             boolean setLocalAddress = get( "bind_local_address", true, val );
+ 
+-            ListenerInfo info = new ListenerInfo( address, motd, maxPlayers, tabListSize, defaultServer, fallbackServer, forceDefault, forced, value.clazz, setLocalAddress );
++            ListenerInfo info = new ListenerInfo( address, tabListSize, defaultServer, fallbackServer, forceDefault, forced, setLocalAddress );
+             ret.add( info );
+         }
+ 
+diff --git a/proxy/src/main/java/net/md_5/bungee/connection/InitialHandler.java b/proxy/src/main/java/net/md_5/bungee/connection/InitialHandler.java
+index ae8d3af..9e1b875 100644
+--- a/proxy/src/main/java/net/md_5/bungee/connection/InitialHandler.java
++++ b/proxy/src/main/java/net/md_5/bungee/connection/InitialHandler.java
+@@ -135,15 +135,17 @@ public class InitialHandler extends PacketHandler implements PendingConnection
+     {
+         try
+         {
+-            ServerInfo forced = AbstractReconnectManager.getForcedHost( this );
+-            String motd = listener.getMotd();
+-            if ( forced != null )
++            ServerInfo forced = AbstractReconnectManager.getMotdHost( this );
++            String motd = forced.getMotd();
++
++            int onlineCount = bungee.getOnlineCount();
++            if ( forced.getMotdCount() == ServerInfo.MotdCount.SERVER )
+             {
+-                motd = forced.getMotd();
++                onlineCount = forced.getPlayers().size();
+             }
+ 
+             ServerPing response = new ServerPing( bungee.getProtocolVersion(), bungee.getGameVersion(),
+-                    motd, bungee.getOnlineCount(), listener.getMaxPlayers() );
++                    motd, onlineCount, forced.getMaxPlayers() );
+ 
+             response = bungee.getPluginManager().callEvent( new ProxyPingEvent( InitialHandler.this, response ) ).getResponse();
+ 
+diff --git a/proxy/src/main/java/net/md_5/bungee/connection/UpstreamBridge.java b/proxy/src/main/java/net/md_5/bungee/connection/UpstreamBridge.java
+index 60d6741..d81cc99 100644
+--- a/proxy/src/main/java/net/md_5/bungee/connection/UpstreamBridge.java
++++ b/proxy/src/main/java/net/md_5/bungee/connection/UpstreamBridge.java
+@@ -27,7 +27,6 @@ public class UpstreamBridge extends PacketHandler
+         this.con = con;
+ 
+         BungeeCord.getInstance().addConnection( con );
+-        con.getTabList().onConnect();
+         con.unsafe().sendPacket( BungeeCord.getInstance().registerChannels() );
+     }
+ 
+diff --git a/proxy/src/main/java/net/md_5/bungee/reconnect/AbstractReconnectManager.java b/proxy/src/main/java/net/md_5/bungee/reconnect/AbstractReconnectManager.java
+index 2cd0c28..61965c2 100644
+--- a/proxy/src/main/java/net/md_5/bungee/reconnect/AbstractReconnectManager.java
++++ b/proxy/src/main/java/net/md_5/bungee/reconnect/AbstractReconnectManager.java
+@@ -44,5 +44,15 @@ public abstract class AbstractReconnectManager implements ReconnectHandler
+         return ProxyServer.getInstance().getServerInfo( forced );
+     }
+ 
++    public static ServerInfo getMotdHost(PendingConnection con)
++    {
++        ServerInfo forced = getForcedHost( con );
++        if ( forced != null )
++        {
++            return forced;
++        }
++        return ProxyServer.getInstance().getServerInfo( con.getListener().getDefaultServer() );
++    }
++
+     protected abstract ServerInfo getStoredServer(ProxiedPlayer player);
+ }
+-- 
+1.8.3.msysgit.0
+

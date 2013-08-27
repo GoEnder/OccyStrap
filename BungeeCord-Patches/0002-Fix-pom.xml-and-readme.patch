@@ -1,0 +1,296 @@
+From 13201ec3c5b02689fc7ab5ffaa139cf0e776204d Mon Sep 17 00:00:00 2001
+From: roblabla <robinlambertz.dev@gmail.com>
+Date: Tue, 27 Aug 2013 23:34:56 +0200
+Subject: [PATCH] Fix pom.xml and readme
+
+
+diff --git a/README.md b/README.md
+index a0a3ac3..1e66657 100644
+--- a/README.md
++++ b/README.md
+@@ -1,19 +1,19 @@
+-BungeeCord
++OccyStrap
+ ==========
+-The most reliable Minecraft server portal suite.
++An even more reliable Minecraft server portal suite. (based on BungeeCord)
+ ------------------------------------------------
+-BungeeCord is a piece of Java software which allows a user to link multiple Minecraft servers together, allowing players to teleport between them and access advanced features. This makes it perfect for servers looking to expand their player base and spread across multiple gameplay styles.
++OccyStrap is a piece of Java software which allows a user to link multiple Minecraft servers together, allowing players to teleport between them and access advanced features. This makes it perfect for servers looking to expand their player base and spread across multiple gameplay styles.
+ 
+ History
+ -------
+-For a long time developers have tried to create these mythical 'cloud' systems as outlined above. Until now, none of them have succeeded in making a fully open source and reliable 'cloud'. You may have already noticed my quoting of the word 'cloud', and this is one of the last times you will see it in this document. BungeeCord is **NOT** a 'cloud'. The actual meaning of the aforementioned word is quoted below:
++For a long time developers have tried to create these mythical 'cloud' systems as outlined above. Until now, none of them have succeeded in making a fully open source and reliable 'cloud'. You may have already noticed my quoting of the word 'cloud', and this is one of the last times you will see it in this document. OccyStrap is **NOT** a 'cloud'. The actual meaning of the aforementioned word is quoted below:
+ 
+ >The use of computing resources (hardware and software) that are delivered as a service over a network (typically the Internet).
+ 
+-BungeeCord does not do this and therefore is not a 'cloud'. Please do not refer to it as one, since the owners and operators of real clouds will get very angry, and you will be seen as ignorant and stupid. Instead I encourage you to use the term 'Server Port Suite' or something to that effect.
++OccyStrap does not do this and therefore is not a 'cloud'. Please do not refer to it as one, since the owners and operators of real clouds will get very angry, and you will be seen as ignorant and stupid. Instead I encourage you to use the term 'Server Port Suite' or something to that effect.
+ 
+ Installation & Usage
+ --------------------
+-For and in depth guide to the installation and usage of BungeeCord you should check the current primary download location. The current link is provided below for your convenience.
++For and in depth guide to the installation and usage of OccyStrap you should check the current primary download location. The current link is provided below for your convenience.
+ 
+ <http://www.spigotmc.org/threads/bungeecord.392/>
+diff --git a/api/pom.xml b/api/pom.xml
+index 23b8950..b96cb25 100644
+--- a/api/pom.xml
++++ b/api/pom.xml
+@@ -4,19 +4,19 @@
+     <modelVersion>4.0.0</modelVersion>
+ 
+     <parent>
+-        <groupId>net.md-5</groupId>
+-        <artifactId>bungeecord-parent</artifactId>
++        <groupId>net.gatesofender</groupId>
++        <artifactId>occystrap-parent</artifactId>
+         <version>1.6.2-SNAPSHOT</version>
+         <relativePath>../pom.xml</relativePath>
+     </parent>
+ 
+-    <groupId>net.md-5</groupId>
+-    <artifactId>bungeecord-api</artifactId>
++    <groupId>net.gatesofender</groupId>
++    <artifactId>occystrap-api</artifactId>
+     <version>1.6.2-SNAPSHOT</version>
+     <packaging>jar</packaging>
+ 
+-    <name>BungeeCord-API</name>
+-    <description>API implemented by the Elastic Portal Suite</description>
++    <name>OccyStrap-API</name>
++    <description>API implemented by the OccyStrap</description>
+ 
+     <dependencies>
+         <dependency>
+@@ -26,14 +26,14 @@
+             <scope>compile</scope>
+         </dependency>
+         <dependency>
+-            <groupId>net.md-5</groupId>
+-            <artifactId>bungeecord-event</artifactId>
++            <groupId>net.gatesofender</groupId>
++            <artifactId>occystrap-event</artifactId>
+             <version>${project.version}</version>
+             <scope>compile</scope>
+         </dependency>
+         <dependency>
+-            <groupId>net.md-5</groupId>
+-            <artifactId>bungeecord-protocol</artifactId>
++            <groupId>net.gatesofender</groupId>
++            <artifactId>occystrap-protocol</artifactId>
+             <version>${project.version}</version>
+             <scope>compile</scope>
+         </dependency>
+diff --git a/config/pom.xml b/config/pom.xml
+index 677a70e..2d76795 100644
+--- a/config/pom.xml
++++ b/config/pom.xml
+@@ -4,19 +4,19 @@
+     <modelVersion>4.0.0</modelVersion>
+ 
+     <parent>
+-        <groupId>net.md-5</groupId>
+-        <artifactId>bungeecord-parent</artifactId>
++        <groupId>net.gatesofender</groupId>
++        <artifactId>occystrap-parent</artifactId>
+         <version>1.6.2-SNAPSHOT</version>
+         <relativePath>../pom.xml</relativePath>
+     </parent>
+ 
+     <groupId>net.md-5</groupId>
+-    <artifactId>bungeecord-config</artifactId>
++    <artifactId>occystrap-config</artifactId>
+     <version>1.6.2-SNAPSHOT</version>
+     <packaging>jar</packaging>
+ 
+-    <name>BungeeCord-Config</name>
+-    <description>Generic java configuration API intended for use with BungeeCord</description>
++    <name>OccyStrap-Config</name>
++    <description>Generic java configuration API intended for use with OccyStrap</description>
+     
+     <dependencies>
+         <dependency>
+diff --git a/event/pom.xml b/event/pom.xml
+index c3e11bc..d066463 100644
+--- a/event/pom.xml
++++ b/event/pom.xml
+@@ -4,17 +4,17 @@
+     <modelVersion>4.0.0</modelVersion>
+ 
+     <parent>
+-        <groupId>net.md-5</groupId>
+-        <artifactId>bungeecord-parent</artifactId>
++        <groupId>net.gatesofender</groupId>
++        <artifactId>occystrap-parent</artifactId>
+         <version>1.6.2-SNAPSHOT</version>
+         <relativePath>../pom.xml</relativePath>
+     </parent>
+ 
+-    <groupId>net.md-5</groupId>
+-    <artifactId>bungeecord-event</artifactId>
++    <groupId>net.gatesofender</groupId>
++    <artifactId>occystrap-event</artifactId>
+     <version>1.6.2-SNAPSHOT</version>
+     <packaging>jar</packaging>
+ 
+-    <name>BungeeCord-Event</name>
+-    <description>Generic java event dispatching API intended for use with BungeeCord</description>
++    <name>OccyStrap-Event</name>
++    <description>Generic java event dispatching API intended for use with OccyStrap</description>
+ </project>
+diff --git a/pom.xml b/pom.xml
+index 4dc8ad7..76fc8c5 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -9,18 +9,18 @@
+         <version>7</version>
+     </parent>
+ 
+-    <groupId>net.md-5</groupId>
+-    <artifactId>bungeecord-parent</artifactId>
++    <groupId>net.gatesofender</groupId>
++    <artifactId>occystrap-parent</artifactId>
+     <version>1.6.2-SNAPSHOT</version>
+     <packaging>pom</packaging>
+ 
+-    <name>BungeeCord</name>
+-    <description>Parent project for all BungeeCord modules.</description>
+-    <url>https://github.com/ElasticPortalSuite/BungeeCord</url>
++    <name>OccyStrap</name>
++    <description>Parent project for all OccyStrap modules.</description>
++    <url>https://github.com/GoEnder/OccyStrap</url>
+     <inceptionYear>2012</inceptionYear>
+     <organization>
+-        <name>Elastic Portal Suite</name>
+-        <url>https://github.com/ElasticPortalSuite</url>
++        <name>GoEnder</name>
++        <url>https://github.com/GoEnder</url>
+     </organization>
+     <licenses>
+         <license>
+@@ -34,6 +34,9 @@
+         <developer>
+             <id>md_5</id>
+         </developer>
++        <developer>
++            <id>roblabla</id>
++        </developer>
+     </developers>
+ 
+     <modules>
+@@ -44,17 +47,17 @@
+     </modules>
+ 
+     <scm>
+-        <connection>scm:git:git@github.com:ElasticPortalSuite/BungeeCord.git</connection>
+-        <developerConnection>scm:git:git@github.com:ElasticPortalSuite/BungeeCord.git</developerConnection>
+-        <url>git@github.com:ElasticPortalSuite/BungeeCord.git</url>
++        <connection>scm:git:git@github.com:GoEnder/OccyStrap.git</connection>
++        <developerConnection>scm:git:git@github.com:GoEnder/OccyStrap.git</developerConnection>
++        <url>git@github.com:GoEnder/OccyStrap.git</url>
+     </scm>
+     <issueManagement>
+         <system>GitHub</system>
+-        <url>https://github.com/ElasticPortalSuite/BungeeCord/issues</url>
++        <url>https://github.com/GoEnder/OccyStrap/issues</url>
+     </issueManagement>
+     <ciManagement>
+         <system>jenkins</system>
+-        <url>http://ci.md-5.net/job/BungeeCord</url>
++        <url>http://ci.gatesofender.net/job/OccyStrap</url>
+     </ciManagement>
+ 
+     <properties>
+diff --git a/protocol/pom.xml b/protocol/pom.xml
+index 3dcd941..f355939 100644
+--- a/protocol/pom.xml
++++ b/protocol/pom.xml
+@@ -4,19 +4,19 @@
+     <modelVersion>4.0.0</modelVersion>
+ 
+     <parent>
+-        <groupId>net.md-5</groupId>
+-        <artifactId>bungeecord-parent</artifactId>
++        <groupId>net.gatesofender</groupId>
++        <artifactId>occystrap-parent</artifactId>
+         <version>1.6.2-SNAPSHOT</version>
+         <relativePath>../pom.xml</relativePath>
+     </parent>
+ 
+-    <groupId>net.md-5</groupId>
+-    <artifactId>bungeecord-protocol</artifactId>
++    <groupId>net.gatesofender</groupId>
++    <artifactId>occystrap-protocol</artifactId>
+     <version>1.6.2-SNAPSHOT</version>
+     <packaging>jar</packaging>
+ 
+-    <name>BungeeCord-Protocol</name>
+-    <description>Minimal implementation of the Minecraft protocol for use in BungeeCord</description>
++    <name>OccyStrap-Protocol</name>
++    <description>Minimal implementation of the Minecraft protocol for use in OccyStrap</description>
+ 
+     <dependencies>
+         <dependency>
+diff --git a/proxy/pom.xml b/proxy/pom.xml
+index 7ed4e17..c11e3cd 100644
+--- a/proxy/pom.xml
++++ b/proxy/pom.xml
+@@ -4,19 +4,19 @@
+     <modelVersion>4.0.0</modelVersion>
+ 
+     <parent>
+-        <groupId>net.md-5</groupId>
+-        <artifactId>bungeecord-parent</artifactId>
++        <groupId>net.gatesofender</groupId>
++        <artifactId>occystrap-parent</artifactId>
+         <version>1.6.2-SNAPSHOT</version>
+         <relativePath>../pom.xml</relativePath>
+     </parent>
+ 
+-    <groupId>net.md-5</groupId>
+-    <artifactId>bungeecord-proxy</artifactId>
++    <groupId>net.gatesofender</groupId>
++    <artifactId>occystrap-proxy</artifactId>
+     <version>1.6.2-SNAPSHOT</version>
+     <packaging>jar</packaging>
+ 
+-    <name>BungeeCord-Proxy</name>
+-    <description>Proxy component of the Elastic Portal Suite</description>
++    <name>OccyStrap-Proxy</name>
++    <description>Proxy component of OccyStrap</description>
+ 
+     <dependencies>
+         <dependency>
+@@ -38,14 +38,14 @@
+             <scope>compile</scope>
+         </dependency>
+         <dependency>
+-            <groupId>net.md-5</groupId>
+-            <artifactId>bungeecord-protocol</artifactId>
++            <groupId>net.gatesofender</groupId>
++            <artifactId>occystrap-protocol</artifactId>
+             <version>${project.version}</version>
+             <scope>compile</scope>
+         </dependency>
+         <dependency>
+-            <groupId>net.md-5</groupId>
+-            <artifactId>bungeecord-api</artifactId>
++            <groupId>net.gatesofender</groupId>
++            <artifactId>occystrap-api</artifactId>
+             <version>${project.version}</version>
+             <scope>compile</scope>
+         </dependency>
+@@ -70,7 +70,7 @@
+     </dependencies>
+ 
+     <build>
+-        <finalName>BungeeCord</finalName>
++        <finalName>OccyStrap</finalName>
+         <plugins>
+             <plugin>
+                 <!-- Don't deploy proxy to maven repo, only APIs -->
+-- 
+1.7.12.4 (Apple Git-37)
+
