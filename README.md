@@ -1,4 +1,3 @@
-BungeeRecoded [![Build Status](https://travis-ci.org/roblabla/BungeeRecoded.png)](https://travis-ci.org/roblabla/BungeeRecoded)
+OccyStrap [![Build Status](https://travis-ci.org/GoEnder/OccyStrap.png)](https://travis-ci.org/GoEnder/OccyStrap)
 ===========
 
-High performance Minecraft server implementation
