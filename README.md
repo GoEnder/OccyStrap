@@ -16,7 +16,7 @@ History
 OccyStrap is based off of BungeeCord, Originally created by @md_5  
 We've created OccyStrap to improve upon BungeeCord and create changes we felt were nessisary to make.  
 
-#### Changes #####  
+#### Changes  
  - Move Tablist settings to Server block, added the ability for tablist types to change when going from server to server
  - Remove MOTD settings from Listener block
  - Add a "Player Count" setting to allow the motd to display the player count for just that server
