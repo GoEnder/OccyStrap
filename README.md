@@ -14,7 +14,7 @@ This makes it perfect for servers looking to distribute the load on their server
 History
 -----------
 OccyStrap is based off of BungeeCord, Originally created by @md_5  
-We've created OccyStrap to improve upon BungeeCord and create changes we felt were nessisary to make.  
+We've created OccyStrap to improve upon BungeeCord and create changes we felt were necessary to make.  
 
 #### Changes  
  - Move Tablist settings to Server block, added the ability for tablist types to change when going from server to server
@@ -30,7 +30,7 @@ We've created OccyStrap to improve upon BungeeCord and create changes we felt we
 Installation and Usage
 -----------
 A guide for BungeeCord installation and usage is [avaliable here](http://www.spigotmc.org/threads/bungeecord.392/)  
-It might not be an exact guide due to the changes we have made in OssyStrap, our own guide is coming soon
+It might not be an exact guide due to the changes we have made in OccyStrap, our own guide is coming soon
 
   
   
