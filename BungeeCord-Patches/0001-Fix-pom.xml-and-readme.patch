@@ -1,4 +1,4 @@
-From 13201ec3c5b02689fc7ab5ffaa139cf0e776204d Mon Sep 17 00:00:00 2001
+From a2d1100e8879cbd781339bd75eb68e446ca24ec5 Mon Sep 17 00:00:00 2001
 From: roblabla <robinlambertz.dev@gmail.com>
 Date: Tue, 27 Aug 2013 23:34:56 +0200
 Subject: [PATCH] Fix pom.xml and readme
@@ -141,7 +141,7 @@ index c3e11bc..d066463 100644
 +    <description>Generic java event dispatching API intended for use with OccyStrap</description>
  </project>
 diff --git a/pom.xml b/pom.xml
-index 4dc8ad7..76fc8c5 100644
+index dafb80d..eaea5e2 100644
 --- a/pom.xml
 +++ b/pom.xml
 @@ -9,18 +9,18 @@
@@ -292,5 +292,5 @@ index 7ed4e17..c11e3cd 100644
              <plugin>
                  <!-- Don't deploy proxy to maven repo, only APIs -->
 -- 
-1.7.12.4 (Apple Git-37)
+1.7.9
 

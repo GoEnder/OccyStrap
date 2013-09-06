@@ -1,7 +1,7 @@
-From 8f81ee6710921f920189e4dee6df95eef3d2f33f Mon Sep 17 00:00:00 2001
-From: Robin Lambertz <robinlambertz.dev@gmail.com>
-Date: Sat, 17 Aug 2013 00:16:36 +0100
-Subject: [PATCH] per-server motd and tablist
+From 131f214152fc8cfb8d9b7648d106ab7f126e7c43 Mon Sep 17 00:00:00 2001
+From: roblabla <robinlambertz.dev@gmail.com>
+Date: Fri, 6 Sep 2013 20:12:15 +0200
+Subject: [PATCH] Per-Server MOTD Configuration
 
 
 diff --git a/api/src/main/java/net/md_5/bungee/api/ProxyServer.java b/api/src/main/java/net/md_5/bungee/api/ProxyServer.java
@@ -30,12 +30,12 @@ index 1344f77..9d631bc 100644
      /**
       * Returns the console overlord for this proxy. Being the console, this
 diff --git a/api/src/main/java/net/md_5/bungee/api/config/ListenerInfo.java b/api/src/main/java/net/md_5/bungee/api/config/ListenerInfo.java
-index 1ec6d5c..2b329e5 100644
+index 2d07f77..1ba90f9 100644
 --- a/api/src/main/java/net/md_5/bungee/api/config/ListenerInfo.java
 +++ b/api/src/main/java/net/md_5/bungee/api/config/ListenerInfo.java
-@@ -18,14 +18,6 @@ public class ListenerInfo
+@@ -26,14 +26,6 @@ public class ListenerInfo
       */
-     private final InetSocketAddress host;
+     private final int queryPort;
      /**
 -     * Displayed MOTD.
 -     */
@@ -48,7 +48,7 @@ index 1ec6d5c..2b329e5 100644
       * Number of players to be shown on the tab list.
       */
      private final int tabListSize;
-@@ -49,10 +41,6 @@ public class ListenerInfo
+@@ -57,10 +49,6 @@ public class ListenerInfo
       */
      private final Map<String, String> forcedHosts;
      /**
@@ -108,10 +108,10 @@ index fa512e3..f172ed8 100644
 +    }
  }
 diff --git a/proxy/src/main/java/net/md_5/bungee/BungeeCord.java b/proxy/src/main/java/net/md_5/bungee/BungeeCord.java
-index ab1553d..8e114c8 100644
+index c4918c5..ea1bc36 100644
 --- a/proxy/src/main/java/net/md_5/bungee/BungeeCord.java
 +++ b/proxy/src/main/java/net/md_5/bungee/BungeeCord.java
-@@ -54,6 +54,7 @@ import net.md_5.bungee.api.connection.ProxiedPlayer;
+@@ -55,6 +55,7 @@ import net.md_5.bungee.api.connection.ProxiedPlayer;
  import net.md_5.bungee.api.plugin.Plugin;
  import net.md_5.bungee.api.plugin.PluginManager;
  import net.md_5.bungee.api.tab.CustomTabList;
@@ -119,7 +119,7 @@ index ab1553d..8e114c8 100644
  import net.md_5.bungee.command.*;
  import net.md_5.bungee.config.YamlConfig;
  import net.md_5.bungee.log.LoggingOutputStream;
-@@ -501,9 +502,9 @@ public class BungeeCord extends ProxyServer
+@@ -553,9 +554,9 @@ public class BungeeCord extends ProxyServer
      }
  
      @Override
@@ -132,7 +132,7 @@ index ab1553d..8e114c8 100644
  
      @Override
 diff --git a/proxy/src/main/java/net/md_5/bungee/BungeeServerInfo.java b/proxy/src/main/java/net/md_5/bungee/BungeeServerInfo.java
-index ea533a1..274080b 100644
+index ea533a1..e048f0e 100644
 --- a/proxy/src/main/java/net/md_5/bungee/BungeeServerInfo.java
 +++ b/proxy/src/main/java/net/md_5/bungee/BungeeServerInfo.java
 @@ -22,6 +22,7 @@ import net.md_5.bungee.api.ServerPing;
@@ -148,7 +148,7 @@ index ea533a1..274080b 100644
      @Getter
      private final Queue<DefinedPacket> packetQueue = new LinkedList<>();
 +    @Getter
-+    private final MotdCount motdCount;
++    private final ServerInfo.MotdCount motdCount;
 +    @Getter
 +    private final int maxPlayers;
 +    @Getter
@@ -157,7 +157,7 @@ index ea533a1..274080b 100644
      @Synchronized("players")
      public void addPlayer(ProxiedPlayer player)
 diff --git a/proxy/src/main/java/net/md_5/bungee/ServerConnector.java b/proxy/src/main/java/net/md_5/bungee/ServerConnector.java
-index e3d3124..629ca10 100644
+index a410ff5..a0bafe2 100644
 --- a/proxy/src/main/java/net/md_5/bungee/ServerConnector.java
 +++ b/proxy/src/main/java/net/md_5/bungee/ServerConnector.java
 @@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
@@ -188,15 +188,6 @@ index e3d3124..629ca10 100644
  
  @RequiredArgsConstructor
  public class ServerConnector extends PacketHandler
-@@ -156,7 +163,7 @@ public class ServerConnector extends PacketHandler
-                 user.unsafe().sendPacket( modLogin );
- 
-                 MinecraftOutput out = new MinecraftOutput();
--                out.writeStringUTF8WithoutLengthHeaderBecauseDinnerboneStuffedUpTheMCBrandPacket(ProxyServer.getInstance().getName() + " (" + ProxyServer.getInstance().getVersion() + ")" );
-+                out.writeStringUTF8WithoutLengthHeaderBecauseDinnerboneStuffedUpTheMCBrandPacket( ProxyServer.getInstance().getName() + " (" + ProxyServer.getInstance().getVersion() + ")" );
-                 user.unsafe().sendPacket( new PacketFAPluginMessage( "MC|Brand", out.toArray() ) );
-             } else
-             {
 @@ -173,6 +180,17 @@ public class ServerConnector extends PacketHandler
                  }
                  serverScoreboard.clear();
@@ -228,10 +219,10 @@ index e3d3124..629ca10 100644
              if ( !user.isActive() )
              {
 diff --git a/proxy/src/main/java/net/md_5/bungee/UserConnection.java b/proxy/src/main/java/net/md_5/bungee/UserConnection.java
-index 584feab..71d1782 100644
+index a1105a7..43c103e 100644
 --- a/proxy/src/main/java/net/md_5/bungee/UserConnection.java
 +++ b/proxy/src/main/java/net/md_5/bungee/UserConnection.java
-@@ -36,6 +36,7 @@ import net.md_5.bungee.protocol.packet.Packet3Chat;
+@@ -37,6 +37,7 @@ import net.md_5.bungee.protocol.packet.Packet3Chat;
  import net.md_5.bungee.protocol.packet.PacketCCSettings;
  import net.md_5.bungee.protocol.packet.PacketFAPluginMessage;
  import net.md_5.bungee.protocol.packet.PacketFFKick;
@@ -239,7 +230,7 @@ index 584feab..71d1782 100644
  import net.md_5.bungee.util.CaseInsensitiveSet;
  
  @RequiredArgsConstructor
-@@ -103,14 +104,6 @@ public final class UserConnection implements ProxiedPlayer
+@@ -104,14 +105,6 @@ public final class UserConnection implements ProxiedPlayer
      public void init()
      {
          this.displayName = name;
@@ -254,7 +245,7 @@ index 584feab..71d1782 100644
  
          Collection<String> g = bungee.getConfigurationAdapter().getGroups( name );
          for ( String s : g )
-@@ -119,6 +112,19 @@ public final class UserConnection implements ProxiedPlayer
+@@ -120,6 +113,19 @@ public final class UserConnection implements ProxiedPlayer
          }
      }
  
@@ -275,7 +266,7 @@ index 584feab..71d1782 100644
      public void setTabList(TabListHandler tabList)
      {
 diff --git a/proxy/src/main/java/net/md_5/bungee/config/YamlConfig.java b/proxy/src/main/java/net/md_5/bungee/config/YamlConfig.java
-index e88970d..fb538e3 100644
+index 73376fa..de6a062 100644
 --- a/proxy/src/main/java/net/md_5/bungee/config/YamlConfig.java
 +++ b/proxy/src/main/java/net/md_5/bungee/config/YamlConfig.java
 @@ -21,6 +21,7 @@ import net.md_5.bungee.api.ProxyServer;
@@ -306,19 +297,16 @@ index e88970d..fb538e3 100644
              ret.put( name, info );
          }
  
-@@ -195,26 +203,16 @@ public class YamlConfig implements ConfigurationAdapter
- 
-         for ( Map<String, Object> val : base )
-         {
+@@ -198,24 +206,15 @@ public class YamlConfig implements ConfigurationAdapter
+             String host = get( "host", "0.0.0.0:25577", val );
+             boolean enableQuery = get( "enableQuery", true, val );
+             int queryPort = get( "queryPort", 25577, val );
 -            String motd = get( "motd", "&1Another Bungee server", val );
 -            motd = ChatColor.translateAlternateColorCodes( '&', motd );
--
 -            int maxPlayers = get( "max_players", 1, val );
-+            String host = get( "host", "0.0.0.0:25577", val );
              String defaultServer = get( "default_server", "lobby", val );
              String fallbackServer = get( "fallback_server", defaultServer, val );
              boolean forceDefault = get( "force_default_server", false, val );
--            String host = get( "host", "0.0.0.0:25577", val );
              int tabListSize = get( "tab_size", 60, val );
              InetSocketAddress address = Util.getAddr( host );
              Map<String, String> forced = new CaseInsensitiveMap<>( get( "forced_hosts", forcedDef, val ) );
@@ -330,8 +318,8 @@ index e88970d..fb538e3 100644
 -            }
              boolean setLocalAddress = get( "bind_local_address", true, val );
  
--            ListenerInfo info = new ListenerInfo( address, motd, maxPlayers, tabListSize, defaultServer, fallbackServer, forceDefault, forced, value.clazz, setLocalAddress );
-+            ListenerInfo info = new ListenerInfo( address, tabListSize, defaultServer, fallbackServer, forceDefault, forced, setLocalAddress );
+-            ListenerInfo info = new ListenerInfo( address, enableQuery, queryPort, motd, maxPlayers, tabListSize, defaultServer, fallbackServer, forceDefault, forced, value.clazz, setLocalAddress );
++            ListenerInfo info = new ListenerInfo( address, enableQuery, queryPort, tabListSize, defaultServer, fallbackServer, forceDefault, forced, setLocalAddress );
              ret.add( info );
          }
  
@@ -363,10 +351,10 @@ index ae8d3af..9e1b875 100644
              response = bungee.getPluginManager().callEvent( new ProxyPingEvent( InitialHandler.this, response ) ).getResponse();
  
 diff --git a/proxy/src/main/java/net/md_5/bungee/connection/UpstreamBridge.java b/proxy/src/main/java/net/md_5/bungee/connection/UpstreamBridge.java
-index 60d6741..d81cc99 100644
+index f6d3811..819dd12 100644
 --- a/proxy/src/main/java/net/md_5/bungee/connection/UpstreamBridge.java
 +++ b/proxy/src/main/java/net/md_5/bungee/connection/UpstreamBridge.java
-@@ -27,7 +27,6 @@ public class UpstreamBridge extends PacketHandler
+@@ -28,7 +28,6 @@ public class UpstreamBridge extends PacketHandler
          this.con = con;
  
          BungeeCord.getInstance().addConnection( con );
@@ -374,6 +362,110 @@ index 60d6741..d81cc99 100644
          con.unsafe().sendPacket( BungeeCord.getInstance().registerChannels() );
      }
  
+diff --git a/proxy/src/main/java/net/md_5/bungee/query/QueryServerHandler.java b/proxy/src/main/java/net/md_5/bungee/query/QueryServerHandler.java
+index 288a709..2fabc9c 100644
+--- a/proxy/src/main/java/net/md_5/bungee/query/QueryServerHandler.java
++++ b/proxy/src/main/java/net/md_5/bungee/query/QueryServerHandler.java
+@@ -23,6 +23,7 @@ import java.util.Random;
+ import lombok.Data;
+ import net.md_5.bungee.BungeeCord;
+ import net.md_5.bungee.api.config.ListenerInfo;
++import net.md_5.bungee.api.config.ServerInfo;
+ import net.md_5.bungee.api.connection.ProxiedPlayer;
+ import net.md_5.bungee.api.event.BriefQueryEvent;
+ import net.md_5.bungee.api.event.FullQueryEvent;
+@@ -46,6 +47,10 @@ public class QueryServerHandler extends SimpleChannelInboundHandler<DatagramPack
+     @Override
+     protected void channelRead0(ChannelHandlerContext ctx, DatagramPacket packet) throws Exception
+     {
++        ListenerInfo info = ctx.channel().attr( PipelineUtils.LISTENER ).get();
++        // No virtual host in query protocol. This is the best way, i'm afraid.
++        ServerInfo serv = BungeeCord.getInstance().getServerInfo( info.getDefaultServer() );
++
+         cleanChallenges();
+ 
+         ByteBuf bytes = packet.content();
+@@ -66,10 +71,10 @@ public class QueryServerHandler extends SimpleChannelInboundHandler<DatagramPack
+                 }
+                 if ( bytes.isReadable() )
+                 {
+-                    ctx.writeAndFlush( getPacket0Full( identities.get( packet.sender() ), ctx.channel().attr( PipelineUtils.LISTENER ).get() ) );
++                    ctx.writeAndFlush( getPacket0Full( identities.get( packet.sender() ), info, serv ) );
+                 } else
+                 {
+-                    ctx.writeAndFlush( getPacket0Brief( identities.get( packet.sender() ), ctx.channel().attr( PipelineUtils.LISTENER ).get() ) );
++                    ctx.writeAndFlush( getPacket0Brief( identities.get( packet.sender() ), info, serv ) );
+                 }
+                 break;
+             case 0x09:
+@@ -117,13 +122,13 @@ public class QueryServerHandler extends SimpleChannelInboundHandler<DatagramPack
+         }
+     }
+ 
+-    private DatagramPacket getPacket0Full(QueryIdentity identity, ListenerInfo info)
++    private DatagramPacket getPacket0Full(QueryIdentity identity, ListenerInfo info, ServerInfo serv)
+     {
+         long currentTime = System.currentTimeMillis();
+         if ( currentTime - cacheTime > 5000L )
+         {
+             this.cacheTime = currentTime;
+-            FullQueryResponse response = getFullQueryResponse( identity, info );
++            FullQueryResponse response = getFullQueryResponse( identity, info, serv);
+             fullReplyCache = Unpooled.buffer();
+             fullReplyCache.writeByte( 0 );
+             fullReplyCache.writeBytes( identity.sessID );
+@@ -162,9 +167,9 @@ public class QueryServerHandler extends SimpleChannelInboundHandler<DatagramPack
+         }
+     }
+ 
+-    private DatagramPacket getPacket0Brief(QueryIdentity identity, ListenerInfo info)
++    private DatagramPacket getPacket0Brief(QueryIdentity identity, ListenerInfo info, ServerInfo serv)
+     {
+-        BriefQueryResponse response = getBriefQueryResponse( identity, info ); // fire an event.
++        BriefQueryResponse response = getBriefQueryResponse( identity, info, serv ); // fire an event.
+         ByteBuf out = Unpooled.buffer();
+         out.writeByte( 0 );
+         out.writeBytes( identity.sessID );
+@@ -207,17 +212,17 @@ public class QueryServerHandler extends SimpleChannelInboundHandler<DatagramPack
+         return builder.toString();
+     }
+ 
+-    private FullQueryResponse getFullQueryResponse(QueryIdentity identity, ListenerInfo info)
++    private FullQueryResponse getFullQueryResponse(QueryIdentity identity, ListenerInfo info, ServerInfo serv)
+     {
+         ImmutableMap.Builder<String, String> mapbuilder = ImmutableMap.builder();
+-        mapbuilder.put( "hostname", info.getMotd() );
++        mapbuilder.put( "hostname", serv.getMotd() );
+         mapbuilder.put( "gametype", "SMP" );
+         mapbuilder.put( "game_id", "MINECRAFT" );
+         mapbuilder.put( "version", BungeeCord.getInstance().getGameVersion() );
+         mapbuilder.put( "plugins", getPluginsValue() );
+         mapbuilder.put( "map", "unknown" );
+         mapbuilder.put( "numplayers", Integer.toString( BungeeCord.getInstance().getOnlineCount() ) );
+-        mapbuilder.put( "maxplayers", Integer.toString( info.getMaxPlayers() ) );
++        mapbuilder.put( "maxplayers", Integer.toString( serv.getMaxPlayers() ) );
+         mapbuilder.put( "hostport", Integer.toString( info.getHost().getPort() ) );
+         mapbuilder.put( "hostip", info.getHost().getAddress().getHostAddress() );
+         ImmutableMap map = mapbuilder.build();
+@@ -237,15 +242,15 @@ public class QueryServerHandler extends SimpleChannelInboundHandler<DatagramPack
+         return ev.getResponse();
+     }
+ 
+-    private BriefQueryResponse getBriefQueryResponse(QueryIdentity identity, ListenerInfo info)
++    private BriefQueryResponse getBriefQueryResponse(QueryIdentity identity, ListenerInfo info, ServerInfo serv)
+     {
+         BriefQueryEvent ev = BungeeCord.getInstance().getPluginManager().callEvent(
+                 new BriefQueryEvent( identity.addr.getAddress(), new BriefQueryResponse(
+-                info.getMotd(),
++                serv.getMotd(),
+                 "SMP",
+                 "unknown",
+                 Integer.toString( BungeeCord.getInstance().getOnlineCount() ),
+-                Integer.toString( info.getMaxPlayers() ),
++                Integer.toString( serv.getMaxPlayers() ),
+                 (short) info.getHost().getPort(),
+                 info.getHost().getAddress().getHostAddress() ) ) );
+         return ev.getResponse();
 diff --git a/proxy/src/main/java/net/md_5/bungee/reconnect/AbstractReconnectManager.java b/proxy/src/main/java/net/md_5/bungee/reconnect/AbstractReconnectManager.java
 index 2cd0c28..61965c2 100644
 --- a/proxy/src/main/java/net/md_5/bungee/reconnect/AbstractReconnectManager.java
@@ -395,5 +487,5 @@ index 2cd0c28..61965c2 100644
      protected abstract ServerInfo getStoredServer(ProxiedPlayer player);
  }
 -- 
-1.8.3.msysgit.0
+1.7.9
 

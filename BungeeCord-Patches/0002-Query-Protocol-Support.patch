@@ -1,0 +1,611 @@
+From 34021ea52ead0ecbd6c52fffb50c8fb04b4262d8 Mon Sep 17 00:00:00 2001
+From: roblabla <robinlambertz.dev@gmail.com>
+Date: Fri, 6 Sep 2013 13:29:42 +0200
+Subject: [PATCH] Query Protocol Support
+
+
+diff --git a/api/src/main/java/net/md_5/bungee/api/config/ListenerInfo.java b/api/src/main/java/net/md_5/bungee/api/config/ListenerInfo.java
+index 1ec6d5c..2d07f77 100644
+--- a/api/src/main/java/net/md_5/bungee/api/config/ListenerInfo.java
++++ b/api/src/main/java/net/md_5/bungee/api/config/ListenerInfo.java
+@@ -18,6 +18,14 @@ public class ListenerInfo
+      */
+     private final InetSocketAddress host;
+     /**
++     * Enable query protocol.
++     */
++    private final boolean enableQuery;
++    /**
++     * Port for query protocol.
++     */
++    private final int queryPort;
++    /**
+      * Displayed MOTD.
+      */
+     private final String motd;
+diff --git a/api/src/main/java/net/md_5/bungee/api/event/BriefQueryEvent.java b/api/src/main/java/net/md_5/bungee/api/event/BriefQueryEvent.java
+new file mode 100644
+index 0000000..f4bc380
+--- /dev/null
++++ b/api/src/main/java/net/md_5/bungee/api/event/BriefQueryEvent.java
+@@ -0,0 +1,34 @@
++/*
++ * To change this template, choose Tools | Templates
++ * and open the template in the editor.
++ */
++package net.md_5.bungee.api.event;
++
++import java.net.InetAddress;
++import lombok.AllArgsConstructor;
++import lombok.Data;
++import lombok.EqualsAndHashCode;
++import lombok.ToString;
++import net.md_5.bungee.api.plugin.Event;
++import net.md_5.bungee.api.query.BriefQueryResponse;
++
++
++/**
++ * Called when the proxy is queried through the query protocol.
++ */
++@Data
++@AllArgsConstructor
++@ToString(callSuper = false)
++@EqualsAndHashCode(callSuper = false)
++public class BriefQueryEvent extends Event
++{
++
++    /**
++     * The connection asking for a query response.
++     */
++    private final InetAddress from;
++    /**
++     * The data to respond with.
++     */
++    private BriefQueryResponse response;
++}
+diff --git a/api/src/main/java/net/md_5/bungee/api/event/FullQueryEvent.java b/api/src/main/java/net/md_5/bungee/api/event/FullQueryEvent.java
+new file mode 100644
+index 0000000..b5efd65
+--- /dev/null
++++ b/api/src/main/java/net/md_5/bungee/api/event/FullQueryEvent.java
+@@ -0,0 +1,34 @@
++/*
++ * To change this template, choose Tools | Templates
++ * and open the template in the editor.
++ */
++package net.md_5.bungee.api.event;
++
++import java.net.InetAddress;
++import lombok.AllArgsConstructor;
++import lombok.Data;
++import lombok.EqualsAndHashCode;
++import lombok.ToString;
++import net.md_5.bungee.api.plugin.Event;
++import net.md_5.bungee.api.query.FullQueryResponse;
++
++
++/**
++ * Called when the proxy is queried through the query protocol.
++ */
++@Data
++@AllArgsConstructor
++@ToString(callSuper = false)
++@EqualsAndHashCode(callSuper = false)
++public class FullQueryEvent extends Event
++{
++
++    /**
++     * The connection asking for a query response.
++     */
++    private final InetAddress from;
++    /**
++     * The data to respond with.
++     */
++    private FullQueryResponse response;
++}
+diff --git a/api/src/main/java/net/md_5/bungee/api/query/BriefQueryResponse.java b/api/src/main/java/net/md_5/bungee/api/query/BriefQueryResponse.java
+new file mode 100644
+index 0000000..f4d1211
+--- /dev/null
++++ b/api/src/main/java/net/md_5/bungee/api/query/BriefQueryResponse.java
+@@ -0,0 +1,44 @@
++/*
++ * To change this template, choose Tools | Templates
++ * and open the template in the editor.
++ */
++package net.md_5.bungee.api.query;
++
++import lombok.Data;
++
++/**
++ *
++ * @author Robin
++ */
++@Data
++public class BriefQueryResponse
++{
++    /**
++     * Server MOTD.
++     */
++    private final String motd;
++    /**
++     * Gametype, usually hardcoded to SMP.
++     */
++    private final String gametype;
++    /**
++     * Main map name.
++     */
++    private final String map;
++    /**
++     * Current amount of players on the server.
++     */
++    private final String numPlayers;
++    /**
++     * Max amount of players the server will allow.
++     */
++    private final String maxPlayers;
++    /**
++     * Server port.
++     */
++    private final short hostport;
++    /**
++     * The IP the server is listening on.
++     */
++    private final String hostip;
++}
+diff --git a/api/src/main/java/net/md_5/bungee/api/query/FullQueryResponse.java b/api/src/main/java/net/md_5/bungee/api/query/FullQueryResponse.java
+new file mode 100644
+index 0000000..4d222fc
+--- /dev/null
++++ b/api/src/main/java/net/md_5/bungee/api/query/FullQueryResponse.java
+@@ -0,0 +1,20 @@
++/*
++ * To change this template, choose Tools | Templates
++ * and open the template in the editor.
++ */
++package net.md_5.bungee.api.query;
++
++import com.google.common.collect.ImmutableList;
++import com.google.common.collect.ImmutableMap;
++import lombok.Data;
++
++/**
++ *
++ * @author Robin
++ */
++@Data
++public class FullQueryResponse
++{
++    private final ImmutableMap<String, String> keyValues;
++    private final ImmutableList<String> players;
++}
+diff --git a/proxy/src/main/java/net/md_5/bungee/BungeeCord.java b/proxy/src/main/java/net/md_5/bungee/BungeeCord.java
+index dda1ba3..c4918c5 100644
+--- a/proxy/src/main/java/net/md_5/bungee/BungeeCord.java
++++ b/proxy/src/main/java/net/md_5/bungee/BungeeCord.java
+@@ -6,6 +6,7 @@ import net.md_5.bungee.reconnect.YamlReconnectHandler;
+ import net.md_5.bungee.scheduler.BungeeScheduler;
+ import com.google.common.util.concurrent.ThreadFactoryBuilder;
+ import com.google.gson.Gson;
++import io.netty.bootstrap.Bootstrap;
+ import io.netty.bootstrap.ServerBootstrap;
+ import io.netty.channel.Channel;
+ import io.netty.channel.ChannelException;
+@@ -13,6 +14,7 @@ import io.netty.channel.ChannelFuture;
+ import io.netty.channel.ChannelFutureListener;
+ import io.netty.channel.MultithreadEventLoopGroup;
+ import io.netty.channel.nio.NioEventLoopGroup;
++import io.netty.channel.socket.nio.NioDatagramChannel;
+ import io.netty.channel.socket.nio.NioServerSocketChannel;
+ import io.netty.util.ResourceLeakDetector;
+ import net.md_5.bungee.config.Configuration;
+@@ -61,6 +63,7 @@ import net.md_5.bungee.protocol.packet.DefinedPacket;
+ import net.md_5.bungee.protocol.packet.Packet3Chat;
+ import net.md_5.bungee.protocol.packet.PacketFAPluginMessage;
+ import net.md_5.bungee.protocol.Vanilla;
++import net.md_5.bungee.query.QueryServerHandler;
+ import net.md_5.bungee.tab.Custom;
+ import net.md_5.bungee.util.CaseInsensitiveMap;
+ import org.fusesource.jansi.AnsiConsole;
+@@ -94,6 +97,11 @@ public class BungeeCord extends ProxyServer
+      */
+     private Collection<Channel> listeners = new HashSet<>();
+     /**
++     * Query socket listener.
++     */
++    private Collection<Channel> queryListeners = new HashSet<>();
++
++    /**
+      * Fully qualified connections.
+      */
+     private final Map<String, UserConnection> connections = new CaseInsensitiveMap<>();
+@@ -293,6 +301,32 @@ public class BungeeCord extends ProxyServer
+                     .group( eventLoops )
+                     .localAddress( info.getHost() )
+                     .bind().addListener( listener );
++            if ( info.isEnableQuery() )
++            {
++                listener = new ChannelFutureListener()
++                {
++                    @Override
++                    public void operationComplete(ChannelFuture future) throws Exception
++                    {
++                        if ( future.isSuccess() )
++                        {
++                            queryListeners.add( future.channel() );
++                            getLogger().info( "Query Listening on " + info.getHost() );
++                        } else
++                        {
++                            getLogger().log( Level.WARNING, "Query Could not bind to host " + info.getHost(), future.cause() );
++                        }
++                    }
++                };
++                new Bootstrap()
++                        .channel( NioDatagramChannel.class )
++                        .attr( PipelineUtils.LISTENER, info )
++                        .group( eventLoops )
++                        .localAddress( new InetSocketAddress( info.getHost().getAddress(), info.getQueryPort() ) )
++                        .handler( new QueryServerHandler() )
++                        .bind().addListener( listener );
++
++            }
+         }
+     }
+ 
+@@ -310,6 +344,18 @@ public class BungeeCord extends ProxyServer
+             }
+         }
+         listeners.clear();
++        for ( Channel listener : queryListeners )
++        {
++            getLogger().log( Level.INFO, "Query Closing listener {0}", listener );
++            try
++            {
++                listener.close().syncUninterruptibly();
++            } catch ( ChannelException ex )
++            {
++                getLogger().severe( "Query Could not close listen thread" );
++            }
++        }
++        queryListeners.clear();
+     }
+ 
+     @Override
+@@ -363,7 +409,7 @@ public class BungeeCord extends ProxyServer
+                     try
+                     {
+                         plugin.onDisable();
+-                    } catch (Throwable t)
++                    } catch ( Throwable t )
+                     {
+                         getLogger().severe( "Exception disabling plugin " + plugin.getDescription().getName() );
+                         t.printStackTrace();
+diff --git a/proxy/src/main/java/net/md_5/bungee/config/YamlConfig.java b/proxy/src/main/java/net/md_5/bungee/config/YamlConfig.java
+index e88970d..73376fa 100644
+--- a/proxy/src/main/java/net/md_5/bungee/config/YamlConfig.java
++++ b/proxy/src/main/java/net/md_5/bungee/config/YamlConfig.java
+@@ -195,14 +195,15 @@ public class YamlConfig implements ConfigurationAdapter
+ 
+         for ( Map<String, Object> val : base )
+         {
++            String host = get( "host", "0.0.0.0:25577", val );
++            boolean enableQuery = get( "enableQuery", true, val );
++            int queryPort = get( "queryPort", 25577, val );
+             String motd = get( "motd", "&1Another Bungee server", val );
+             motd = ChatColor.translateAlternateColorCodes( '&', motd );
+-
+             int maxPlayers = get( "max_players", 1, val );
+             String defaultServer = get( "default_server", "lobby", val );
+             String fallbackServer = get( "fallback_server", defaultServer, val );
+             boolean forceDefault = get( "force_default_server", false, val );
+-            String host = get( "host", "0.0.0.0:25577", val );
+             int tabListSize = get( "tab_size", 60, val );
+             InetSocketAddress address = Util.getAddr( host );
+             Map<String, String> forced = new CaseInsensitiveMap<>( get( "forced_hosts", forcedDef, val ) );
+@@ -214,7 +215,7 @@ public class YamlConfig implements ConfigurationAdapter
+             }
+             boolean setLocalAddress = get( "bind_local_address", true, val );
+ 
+-            ListenerInfo info = new ListenerInfo( address, motd, maxPlayers, tabListSize, defaultServer, fallbackServer, forceDefault, forced, value.clazz, setLocalAddress );
++            ListenerInfo info = new ListenerInfo( address, enableQuery, queryPort, motd, maxPlayers, tabListSize, defaultServer, fallbackServer, forceDefault, forced, value.clazz, setLocalAddress );
+             ret.add( info );
+         }
+ 
+diff --git a/proxy/src/main/java/net/md_5/bungee/query/QueryServerHandler.java b/proxy/src/main/java/net/md_5/bungee/query/QueryServerHandler.java
+new file mode 100644
+index 0000000..288a709
+--- /dev/null
++++ b/proxy/src/main/java/net/md_5/bungee/query/QueryServerHandler.java
+@@ -0,0 +1,269 @@
++/*
++ * To change this template, choose Tools | Templates
++ * and open the template in the editor.
++ */
++package net.md_5.bungee.query;
++
++import com.google.common.base.Function;
++import com.google.common.collect.Collections2;
++import com.google.common.collect.ImmutableList;
++import com.google.common.collect.ImmutableMap;
++import com.google.common.primitives.Ints;
++import io.netty.buffer.ByteBuf;
++import io.netty.buffer.Unpooled;
++import io.netty.channel.ChannelHandlerContext;
++import io.netty.channel.SimpleChannelInboundHandler;
++import io.netty.channel.socket.DatagramPacket;
++import java.net.InetSocketAddress;
++import java.net.SocketAddress;
++import java.util.HashMap;
++import java.util.Iterator;
++import java.util.Map;
++import java.util.Random;
++import lombok.Data;
++import net.md_5.bungee.BungeeCord;
++import net.md_5.bungee.api.config.ListenerInfo;
++import net.md_5.bungee.api.connection.ProxiedPlayer;
++import net.md_5.bungee.api.event.BriefQueryEvent;
++import net.md_5.bungee.api.event.FullQueryEvent;
++import net.md_5.bungee.api.plugin.Plugin;
++import net.md_5.bungee.api.query.BriefQueryResponse;
++import net.md_5.bungee.api.query.FullQueryResponse;
++import net.md_5.bungee.netty.PipelineUtils;
++
++/**
++ *
++ * @author roblabla
++ */
++public class QueryServerHandler extends SimpleChannelInboundHandler<DatagramPacket>
++{
++
++    private Map<SocketAddress, QueryIdentity> identities = new HashMap<>();
++    private long clearedTime = 0;
++    private ByteBuf fullReplyCache;
++    private long cacheTime = 0;
++
++    @Override
++    protected void channelRead0(ChannelHandlerContext ctx, DatagramPacket packet) throws Exception
++    {
++        cleanChallenges();
++
++        ByteBuf bytes = packet.content();
++        byte magic1 = bytes.readByte();
++        byte magic2 = bytes.readByte();
++        if ( !(magic1 == (byte) 0xFE && magic2 == (byte) 0xFD ) ) // Magic Bytes.
++        {
++            return;
++        }
++        byte type = bytes.readByte();
++        int sessID = bytes.readInt();
++        switch ( type )
++        {
++            case 0x00:
++                if ( !hasChallenge( packet ) )
++                {
++                    return;
++                }
++                if ( bytes.isReadable() )
++                {
++                    ctx.writeAndFlush( getPacket0Full( identities.get( packet.sender() ), ctx.channel().attr( PipelineUtils.LISTENER ).get() ) );
++                } else
++                {
++                    ctx.writeAndFlush( getPacket0Brief( identities.get( packet.sender() ), ctx.channel().attr( PipelineUtils.LISTENER ).get() ) );
++                }
++                break;
++            case 0x09:
++                QueryIdentity id = new QueryIdentity( packet.sender(), Ints.toByteArray( sessID ), new Random().nextInt() );
++                ctx.writeAndFlush( getPacket9Response( id ) ); // not sent ???
++                identities.put( packet.sender(), id );
++        }
++    }
++
++    public void cleanChallenges()
++    {
++        long i = System.currentTimeMillis();
++        if ( i - this.clearedTime > 30_000L )
++        {
++            this.clearedTime = System.currentTimeMillis();
++            Iterator<QueryIdentity> it = identities.values().iterator();
++            while ( it.hasNext() )
++            {
++                QueryIdentity id = it.next();
++                if ( i - id.getTimecreated() > 30_000L )
++                {
++                    it.remove();
++                }
++            }
++        }
++    }
++
++    public DatagramPacket getPacket9Response(QueryIdentity resp)
++    {
++        String challStr = Integer.toString( resp.getChallenge() ) + "\0";
++        return new DatagramPacket( Unpooled.copiedBuffer( new byte[] { 0x09 }, resp.sessID, challStr.getBytes() ), resp.addr );
++    }
++
++    private boolean hasChallenge(DatagramPacket packet)
++    {
++        SocketAddress socketaddress = packet.sender();
++
++        if ( !this.identities.containsKey( socketaddress ) )
++        {
++            return false;
++        } else
++        {
++            int chall = packet.content().readInt();
++            return identities.get( socketaddress ).challenge == chall;
++        }
++    }
++
++    private DatagramPacket getPacket0Full(QueryIdentity identity, ListenerInfo info)
++    {
++        long currentTime = System.currentTimeMillis();
++        if ( currentTime - cacheTime > 5000L )
++        {
++            this.cacheTime = currentTime;
++            FullQueryResponse response = getFullQueryResponse( identity, info );
++            fullReplyCache = Unpooled.buffer();
++            fullReplyCache.writeByte( 0 );
++            fullReplyCache.writeBytes( identity.sessID );
++            fullReplyCache.writeBytes( new byte[]
++            {
++                (byte) 0x73, (byte) 0x70, (byte) 0x6C, (byte) 0x69, (byte) 0x74,
++                (byte) 0x6E, (byte) 0x75, (byte) 0x6D, (byte) 0x00, (byte) 0x80,
++                (byte) 0x00
++            } ); // Padding
++            for ( Map.Entry<String, String> entry : response.getKeyValues().entrySet() )
++            {
++                fullReplyCache.writeBytes( entry.getKey().getBytes() );
++                fullReplyCache.writeByte( 0 );
++                fullReplyCache.writeBytes( entry.getValue().getBytes() );
++                fullReplyCache.writeByte( 0 );
++            }
++            fullReplyCache.writeByte( 0 );
++            fullReplyCache.writeBytes( new byte[]
++            {
++                (byte) 0x01, (byte) 0x70, (byte) 0x6C, (byte) 0x61, (byte) 0x79,
++                (byte) 0x65, (byte) 0x72, (byte) 0x5F, (byte) 0x00, (byte) 0x00
++            } ); // Padding
++            for ( String p : response.getPlayers() )
++            {
++                fullReplyCache.writeBytes( p.getBytes() );
++                fullReplyCache.writeByte( 0 );
++            }
++            fullReplyCache.writeByte( 0 );
++
++            return new DatagramPacket( fullReplyCache, identity.addr );
++
++        } else
++        {
++            fullReplyCache.setBytes( 1, identity.sessID );
++            return new DatagramPacket( fullReplyCache, identity.addr );
++        }
++    }
++
++    private DatagramPacket getPacket0Brief(QueryIdentity identity, ListenerInfo info)
++    {
++        BriefQueryResponse response = getBriefQueryResponse( identity, info ); // fire an event.
++        ByteBuf out = Unpooled.buffer();
++        out.writeByte( 0 );
++        out.writeBytes( identity.sessID );
++        out.writeBytes( response.getMotd().getBytes() );
++        out.writeByte( 0 );
++        out.writeBytes( response.getGametype().getBytes() );
++        out.writeByte( 0 );
++        out.writeBytes( response.getMap().getBytes() );
++        out.writeByte( 0 );
++        out.writeBytes( response.getNumPlayers().getBytes() );
++        out.writeByte( 0 );
++        out.writeBytes( response.getMaxPlayers().getBytes() );
++        out.writeByte( 0 );
++        out.writeShort(response.getHostport() );
++        out.writeBytes( response.getHostip().getBytes() );
++        out.writeByte( 0 );
++        return new DatagramPacket( out, identity.addr );
++    }
++
++    private String getPluginsValue()
++    {
++        StringBuilder builder = new StringBuilder( BungeeCord.getInstance().getVersion() );
++        if ( BungeeCord.getInstance().getPluginManager().getPlugins().size() > 0 )
++        {
++            builder.append( ": " );
++        }
++
++        for ( Plugin plugin : BungeeCord.getInstance().getPluginManager().getPlugins() )
++        {
++            builder.append( plugin.getDescription().getName() );
++            builder.append( " " );
++            builder.append( plugin.getDescription().getVersion() );
++            builder.append( "; " );
++        }
++
++        if ( BungeeCord.getInstance().getPluginManager().getPlugins().size() > 0 )
++        {
++            builder.delete( builder.length() - 2, builder.length() );
++        }
++        return builder.toString();
++    }
++
++    private FullQueryResponse getFullQueryResponse(QueryIdentity identity, ListenerInfo info)
++    {
++        ImmutableMap.Builder<String, String> mapbuilder = ImmutableMap.builder();
++        mapbuilder.put( "hostname", info.getMotd() );
++        mapbuilder.put( "gametype", "SMP" );
++        mapbuilder.put( "game_id", "MINECRAFT" );
++        mapbuilder.put( "version", BungeeCord.getInstance().getGameVersion() );
++        mapbuilder.put( "plugins", getPluginsValue() );
++        mapbuilder.put( "map", "unknown" );
++        mapbuilder.put( "numplayers", Integer.toString( BungeeCord.getInstance().getOnlineCount() ) );
++        mapbuilder.put( "maxplayers", Integer.toString( info.getMaxPlayers() ) );
++        mapbuilder.put( "hostport", Integer.toString( info.getHost().getPort() ) );
++        mapbuilder.put( "hostip", info.getHost().getAddress().getHostAddress() );
++        ImmutableMap map = mapbuilder.build();
++        ImmutableList<String> players = ImmutableList.copyOf(
++                Collections2.transform( BungeeCord.getInstance().getPlayers(),
++                new Function<ProxiedPlayer, String>()
++        {
++            @Override
++            public String apply(ProxiedPlayer p)
++            {
++                return p.getName();
++            }
++        } ) );
++        FullQueryEvent ev = BungeeCord.getInstance().getPluginManager().callEvent(
++                new FullQueryEvent( identity.addr.getAddress(), new FullQueryResponse( map, players ) ) );
++
++        return ev.getResponse();
++    }
++
++    private BriefQueryResponse getBriefQueryResponse(QueryIdentity identity, ListenerInfo info)
++    {
++        BriefQueryEvent ev = BungeeCord.getInstance().getPluginManager().callEvent(
++                new BriefQueryEvent( identity.addr.getAddress(), new BriefQueryResponse(
++                info.getMotd(),
++                "SMP",
++                "unknown",
++                Integer.toString( BungeeCord.getInstance().getOnlineCount() ),
++                Integer.toString( info.getMaxPlayers() ),
++                (short) info.getHost().getPort(),
++                info.getHost().getAddress().getHostAddress() ) ) );
++        return ev.getResponse();
++    }
++
++    @Override
++    public void exceptionCaught( ChannelHandlerContext ctx, Throwable cause )
++    {
++        cause.printStackTrace();
++    }
++
++    @Data
++    public class QueryIdentity
++    {
++
++        private final InetSocketAddress addr;
++        private final byte[] sessID;
++        private final int challenge;
++        private final long timecreated = System.currentTimeMillis();
++    }
++}
+diff --git a/proxy/src/main/java/net/md_5/bungee/query/RemoteStatusReply.java b/proxy/src/main/java/net/md_5/bungee/query/RemoteStatusReply.java
+new file mode 100644
+index 0000000..39c0e0e
+--- /dev/null
++++ b/proxy/src/main/java/net/md_5/bungee/query/RemoteStatusReply.java
+@@ -0,0 +1,14 @@
++/*
++ * To change this template, choose Tools | Templates
++ * and open the template in the editor.
++ */
++package net.md_5.bungee.query;
++
++/**
++ *
++ * @author roblabla
++ */
++public class RemoteStatusReply
++{
++    
++}
+-- 
+1.7.9
+
