@@ -1,0 +1,258 @@
+From 9fc216abb0dc4a7e5f1017285e6a7ac507810762 Mon Sep 17 00:00:00 2001
+From: roblabla <robinlambertz.dev@gmail.com>
+Date: Sat, 7 Sep 2013 15:10:16 +0200
+Subject: [PATCH] Revert "Back to Java cipher, they are both the same speed"
+
+This reverts commit 7d1904584be257c4d9308d61f1ae66b3974bc91f.
+
+Conflicts:
+
+	proxy/src/main/java/net/md_5/bungee/ServerConnector.java
+	proxy/src/main/java/net/md_5/bungee/connection/InitialHandler.java
+	proxy/src/main/java/net/md_5/bungee/netty/CipherDecoder.java
+
+diff --git a/proxy/pom.xml b/proxy/pom.xml
+index c11e3cd..b99b067 100644
+--- a/proxy/pom.xml
++++ b/proxy/pom.xml
+@@ -62,6 +62,12 @@
+             <scope>runtime</scope>
+         </dependency>
+         <dependency>
++            <groupId>org.bouncycastle</groupId>
++            <artifactId>bcprov-jdk15on</artifactId>
++            <version>1.49</version>
++            <scope>compile</scope>
++        </dependency>
++        <dependency>
+             <groupId>org.javassist</groupId>
+             <artifactId>javassist</artifactId>
+             <version>3.18.0-GA</version>
+diff --git a/proxy/src/main/java/net/md_5/bungee/EncryptionUtil.java b/proxy/src/main/java/net/md_5/bungee/EncryptionUtil.java
+index 2331aa8..86c986c 100644
+--- a/proxy/src/main/java/net/md_5/bungee/EncryptionUtil.java
++++ b/proxy/src/main/java/net/md_5/bungee/EncryptionUtil.java
+@@ -7,16 +7,22 @@ import java.security.KeyPair;
+ import java.security.KeyPairGenerator;
+ import java.security.NoSuchAlgorithmException;
+ import java.security.PublicKey;
++import java.security.Security;
+ import java.security.spec.X509EncodedKeySpec;
+ import java.util.Arrays;
+ import java.util.Random;
+ import javax.crypto.Cipher;
+ import javax.crypto.SecretKey;
+-import javax.crypto.spec.IvParameterSpec;
+ import javax.crypto.spec.SecretKeySpec;
+ import lombok.Getter;
+ import net.md_5.bungee.protocol.packet.PacketFCEncryptionResponse;
+ import net.md_5.bungee.protocol.packet.PacketFDEncryptionRequest;
++import org.bouncycastle.crypto.BufferedBlockCipher;
++import org.bouncycastle.crypto.engines.AESFastEngine;
++import org.bouncycastle.crypto.modes.CFBBlockCipher;
++import org.bouncycastle.crypto.params.KeyParameter;
++import org.bouncycastle.crypto.params.ParametersWithIV;
++import org.bouncycastle.jce.provider.BouncyCastleProvider;
+ 
+ /**
+  * Class containing all encryption related methods for the proxy.
+@@ -31,6 +37,7 @@ public class EncryptionUtil
+ 
+     static
+     {
++        Security.addProvider( new BouncyCastleProvider() );
+         try
+         {
+             keys = KeyPairGenerator.getInstance( "RSA" ).generateKeyPair();
+@@ -64,10 +71,10 @@ public class EncryptionUtil
+         return new SecretKeySpec( cipher.doFinal( resp.getSharedSecret() ), "AES" );
+     }
+ 
+-    public static Cipher getCipher(int opMode, Key shared) throws GeneralSecurityException
++    public static BufferedBlockCipher getCipher(boolean forEncryption, Key shared)
+     {
+-        Cipher cip = Cipher.getInstance( "AES/CFB8/NoPadding" );
+-        cip.init( opMode, shared, new IvParameterSpec( shared.getEncoded() ) );
++        BufferedBlockCipher cip = new BufferedBlockCipher( new CFBBlockCipher( new AESFastEngine(), 8 ) );
++        cip.init( forEncryption, new ParametersWithIV( new KeyParameter( shared.getEncoded() ), shared.getEncoded(), 0, 16 ) );
+         return cip;
+     }
+ 
+diff --git a/proxy/src/main/java/net/md_5/bungee/ServerConnector.java b/proxy/src/main/java/net/md_5/bungee/ServerConnector.java
+index a0bafe2..0e30432 100644
+--- a/proxy/src/main/java/net/md_5/bungee/ServerConnector.java
++++ b/proxy/src/main/java/net/md_5/bungee/ServerConnector.java
+@@ -7,7 +7,6 @@ import java.io.DataInput;
+ import java.security.PublicKey;
+ import java.util.Objects;
+ import java.util.Queue;
+-import javax.crypto.Cipher;
+ import javax.crypto.SecretKey;
+ import lombok.RequiredArgsConstructor;
+ import net.md_5.bungee.api.ChatColor;
+@@ -47,6 +46,7 @@ import net.md_5.bungee.tab.Custom;
+ import net.md_5.bungee.tab.Global;
+ import net.md_5.bungee.tab.GlobalPing;
+ import net.md_5.bungee.tab.ServerUnique;
++import org.bouncycastle.crypto.BufferedBlockCipher;
+ 
+ @RequiredArgsConstructor
+ public class ServerConnector extends PacketHandler
+@@ -247,7 +247,7 @@ public class ServerConnector extends PacketHandler
+ 
+             ch.write( new PacketFCEncryptionResponse( shared, token ) );
+ 
+-            Cipher encrypt = EncryptionUtil.getCipher( Cipher.ENCRYPT_MODE, secretkey );
++            BufferedBlockCipher encrypt = EncryptionUtil.getCipher( true, secretkey );
+             ch.addBefore( PipelineUtils.PACKET_DECODE_HANDLER, PipelineUtils.ENCRYPT_HANDLER, new CipherEncoder( encrypt ) );
+ 
+             thisState = State.ENCRYPT_RESPONSE;
+@@ -262,7 +262,7 @@ public class ServerConnector extends PacketHandler
+     {
+         Preconditions.checkState( thisState == State.ENCRYPT_RESPONSE, "Not expecting ENCRYPT_RESPONSE" );
+ 
+-        Cipher decrypt = EncryptionUtil.getCipher( Cipher.DECRYPT_MODE, secretkey );
++        BufferedBlockCipher decrypt = EncryptionUtil.getCipher( false, secretkey );
+         ch.addBefore( PipelineUtils.PACKET_DECODE_HANDLER, PipelineUtils.DECRYPT_HANDLER, new CipherDecoder( decrypt ) );
+ 
+         ch.write( user.getPendingConnection().getForgeLogin() );
+diff --git a/proxy/src/main/java/net/md_5/bungee/connection/InitialHandler.java b/proxy/src/main/java/net/md_5/bungee/connection/InitialHandler.java
+index 9e1b875..256b230 100644
+--- a/proxy/src/main/java/net/md_5/bungee/connection/InitialHandler.java
++++ b/proxy/src/main/java/net/md_5/bungee/connection/InitialHandler.java
+@@ -5,13 +5,11 @@ import io.netty.util.concurrent.ScheduledFuture;
+ import java.math.BigInteger;
+ import java.net.InetSocketAddress;
+ import java.net.URLEncoder;
+-import java.security.GeneralSecurityException;
+ import java.security.MessageDigest;
+ import java.util.ArrayList;
+ import java.util.List;
+ import java.util.concurrent.TimeUnit;
+ import java.util.logging.Level;
+-import javax.crypto.Cipher;
+ import javax.crypto.SecretKey;
+ import lombok.Getter;
+ import lombok.RequiredArgsConstructor;
+@@ -52,6 +50,7 @@ import net.md_5.bungee.protocol.packet.PacketFDEncryptionRequest;
+ import net.md_5.bungee.protocol.packet.PacketFEPing;
+ import net.md_5.bungee.protocol.packet.PacketFFKick;
+ import net.md_5.bungee.reconnect.AbstractReconnectManager;
++import org.bouncycastle.crypto.BufferedBlockCipher;
+ 
+ @RequiredArgsConstructor
+ public class InitialHandler extends PacketHandler implements PendingConnection
+@@ -234,7 +233,7 @@ public class InitialHandler extends PacketHandler implements PendingConnection
+         Preconditions.checkState( thisState == State.ENCRYPT, "Not expecting ENCRYPT" );
+ 
+         sharedKey = EncryptionUtil.getSecret( encryptResponse, request );
+-        Cipher decrypt = EncryptionUtil.getCipher( Cipher.DECRYPT_MODE, sharedKey );
++        BufferedBlockCipher decrypt = EncryptionUtil.getCipher( false, sharedKey );
+         ch.addBefore( PipelineUtils.PACKET_DECODE_HANDLER, PipelineUtils.DECRYPT_HANDLER, new CipherDecoder( decrypt ) );
+ 
+         if ( BungeeCord.getInstance().config.isOnlineMode() )
+@@ -314,14 +313,8 @@ public class InitialHandler extends PacketHandler implements PendingConnection
+                         if ( ch.getHandle().isActive() )
+                         {
+                             unsafe().sendPacket( new PacketFCEncryptionResponse( new byte[ 0 ], new byte[ 0 ] ) );
+-                            try
+-                            {
+-                                Cipher encrypt = EncryptionUtil.getCipher( Cipher.ENCRYPT_MODE, sharedKey );
+-                                ch.addBefore( PipelineUtils.DECRYPT_HANDLER, PipelineUtils.ENCRYPT_HANDLER, new CipherEncoder( encrypt ) );
+-                            } catch ( GeneralSecurityException ex )
+-                            {
+-                                disconnect( "Cipher error: " + Util.exception( ex ) );
+-                            }
++                            BufferedBlockCipher encrypt = EncryptionUtil.getCipher( true, sharedKey );
++                            ch.addBefore( PipelineUtils.DECRYPT_HANDLER, PipelineUtils.ENCRYPT_HANDLER, new CipherEncoder( encrypt ) );
+                         }
+                     }
+                 } );
+diff --git a/proxy/src/main/java/net/md_5/bungee/netty/CipherBase.java b/proxy/src/main/java/net/md_5/bungee/netty/CipherBase.java
+index 5679afe..02bdaed 100644
+--- a/proxy/src/main/java/net/md_5/bungee/netty/CipherBase.java
++++ b/proxy/src/main/java/net/md_5/bungee/netty/CipherBase.java
+@@ -2,11 +2,11 @@ package net.md_5.bungee.netty;
+ 
+ import io.netty.buffer.ByteBuf;
+ import io.netty.channel.ChannelHandlerContext;
+-import javax.crypto.Cipher;
+ import javax.crypto.ShortBufferException;
+ import lombok.AccessLevel;
+ import lombok.NonNull;
+ import lombok.RequiredArgsConstructor;
++import org.bouncycastle.crypto.BufferedBlockCipher;
+ 
+ /**
+  * Class to expose an
+@@ -18,7 +18,7 @@ public class CipherBase
+ {
+ 
+     @NonNull
+-    private final Cipher cipher;
++    private final BufferedBlockCipher cipher;
+     private ThreadLocal<byte[]> heapInLocal = new EmptyByteThreadLocal();
+     private ThreadLocal<byte[]> heapOutLocal = new EmptyByteThreadLocal();
+ 
+@@ -51,7 +51,7 @@ public class CipherBase
+         byte[] heapIn = bufToByte( in );
+ 
+         ByteBuf heapOut = ctx.alloc().heapBuffer( cipher.getOutputSize( readableBytes ) );
+-        heapOut.writerIndex( cipher.update( heapIn, 0, readableBytes, heapOut.array(), heapOut.arrayOffset() ) );
++        heapOut.writerIndex( cipher.processBytes( heapIn, 0, readableBytes, heapOut.array(), heapOut.arrayOffset() ) );
+ 
+         return heapOut;
+     }
+@@ -68,6 +68,6 @@ public class CipherBase
+             heapOut = new byte[ outputSize ];
+             heapOutLocal.set( heapOut );
+         }
+-        out.writeBytes( heapOut, 0, cipher.update( heapIn, 0, readableBytes, heapOut ) );
++        out.writeBytes( heapOut, 0, cipher.processBytes( heapIn, 0, readableBytes, heapOut, 0 ) );
+     }
+ }
+diff --git a/proxy/src/main/java/net/md_5/bungee/netty/CipherDecoder.java b/proxy/src/main/java/net/md_5/bungee/netty/CipherDecoder.java
+index e6fe7df..6c56ac2 100644
+--- a/proxy/src/main/java/net/md_5/bungee/netty/CipherDecoder.java
++++ b/proxy/src/main/java/net/md_5/bungee/netty/CipherDecoder.java
+@@ -4,14 +4,14 @@ import io.netty.buffer.ByteBuf;
+ import io.netty.channel.ChannelHandlerContext;
+ import io.netty.handler.codec.MessageToMessageDecoder;
+ import java.util.List;
+-import javax.crypto.Cipher;
++import org.bouncycastle.crypto.BufferedBlockCipher;
+ 
+ public class CipherDecoder extends MessageToMessageDecoder<ByteBuf>
+ {
+ 
+     private final CipherBase cipher;
+ 
+-    public CipherDecoder(Cipher cipher)
++    public CipherDecoder(BufferedBlockCipher cipher)
+     {
+         this.cipher = new CipherBase( cipher );
+     }
+diff --git a/proxy/src/main/java/net/md_5/bungee/netty/CipherEncoder.java b/proxy/src/main/java/net/md_5/bungee/netty/CipherEncoder.java
+index 7e5c0ec..c300a18 100644
+--- a/proxy/src/main/java/net/md_5/bungee/netty/CipherEncoder.java
++++ b/proxy/src/main/java/net/md_5/bungee/netty/CipherEncoder.java
+@@ -3,14 +3,14 @@ package net.md_5.bungee.netty;
+ import io.netty.buffer.ByteBuf;
+ import io.netty.channel.ChannelHandlerContext;
+ import io.netty.handler.codec.MessageToByteEncoder;
+-import javax.crypto.Cipher;
++import org.bouncycastle.crypto.BufferedBlockCipher;
+ 
+ public class CipherEncoder extends MessageToByteEncoder<ByteBuf>
+ {
+ 
+     private final CipherBase cipher;
+ 
+-    public CipherEncoder(Cipher cipher)
++    public CipherEncoder(BufferedBlockCipher cipher)
+     {
+         this.cipher = new CipherBase( cipher );
+     }
+-- 
+1.7.9
+
