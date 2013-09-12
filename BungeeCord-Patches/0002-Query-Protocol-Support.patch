@@ -1,14 +1,49 @@
-From 34021ea52ead0ecbd6c52fffb50c8fb04b4262d8 Mon Sep 17 00:00:00 2001
+From b2d138d57a616b9e125e56093fc498d60200e8f3 Mon Sep 17 00:00:00 2001
 From: roblabla <robinlambertz.dev@gmail.com>
-Date: Fri, 6 Sep 2013 13:29:42 +0200
+Date: Thu, 12 Sep 2013 10:29:09 +0200
 Subject: [PATCH] Query Protocol Support
 
 
 diff --git a/api/src/main/java/net/md_5/bungee/api/config/ListenerInfo.java b/api/src/main/java/net/md_5/bungee/api/config/ListenerInfo.java
-index 1ec6d5c..2d07f77 100644
+index 1ec6d5c..1fa28a2 100644
 --- a/api/src/main/java/net/md_5/bungee/api/config/ListenerInfo.java
 +++ b/api/src/main/java/net/md_5/bungee/api/config/ListenerInfo.java
-@@ -18,6 +18,14 @@ public class ListenerInfo
+@@ -3,6 +3,7 @@ package net.md_5.bungee.api.config;
+ import java.net.InetSocketAddress;
+ import java.util.Map;
+ import lombok.Data;
++import lombok.RequiredArgsConstructor;
+ import net.md_5.bungee.api.tab.TabListHandler;
+ 
+ /**
+@@ -10,14 +11,41 @@ import net.md_5.bungee.api.tab.TabListHandler;
+  * multiple listeners on different ports.
+  */
+ @Data
++@RequiredArgsConstructor
+ public class ListenerInfo
+ {
+ 
+     /**
++     * BungeeCord non-modified constructor. Provided for plugin compability.
++     * @param host 
++     * @param motd
++     * @param maxPlayers
++     * @param tabListSize
++     * @param defaultServer
++     * @param fallbackServer
++     * @param forceDefault
++     * @param forcedHosts
++     * @param tabList
++     * @param setLocalAddress 
++     */
++    public ListenerInfo( InetSocketAddress host, String motd, int maxPlayers, int tabListSize, String defaultServer, String fallbackServer, boolean forceDefault, Map<String, String> forcedHosts, Class<? extends TabListHandler> tabList, boolean setLocalAddress )
++    {
++        this(host, false, 25565, motd, maxPlayers, tabListSize, defaultServer, fallbackServer, forceDefault, forcedHosts, tabList, setLocalAddress);
++    }
++
++    /**
+      * Host to bind to.
       */
      private final InetSocketAddress host;
      /**
@@ -281,10 +316,10 @@ index dda1ba3..c4918c5 100644
                          getLogger().severe( "Exception disabling plugin " + plugin.getDescription().getName() );
                          t.printStackTrace();
 diff --git a/proxy/src/main/java/net/md_5/bungee/config/YamlConfig.java b/proxy/src/main/java/net/md_5/bungee/config/YamlConfig.java
-index e88970d..73376fa 100644
+index e88970d..4702dce 100644
 --- a/proxy/src/main/java/net/md_5/bungee/config/YamlConfig.java
 +++ b/proxy/src/main/java/net/md_5/bungee/config/YamlConfig.java
-@@ -195,14 +195,15 @@ public class YamlConfig implements ConfigurationAdapter
+@@ -195,6 +195,9 @@ public class YamlConfig implements ConfigurationAdapter
  
          for ( Map<String, Object> val : base )
          {
@@ -293,8 +328,8 @@ index e88970d..73376fa 100644
 +            int queryPort = get( "queryPort", 25577, val );
              String motd = get( "motd", "&1Another Bungee server", val );
              motd = ChatColor.translateAlternateColorCodes( '&', motd );
--
-             int maxPlayers = get( "max_players", 1, val );
+ 
+@@ -202,7 +205,6 @@ public class YamlConfig implements ConfigurationAdapter
              String defaultServer = get( "default_server", "lobby", val );
              String fallbackServer = get( "fallback_server", defaultServer, val );
              boolean forceDefault = get( "force_default_server", false, val );
@@ -302,7 +337,7 @@ index e88970d..73376fa 100644
              int tabListSize = get( "tab_size", 60, val );
              InetSocketAddress address = Util.getAddr( host );
              Map<String, String> forced = new CaseInsensitiveMap<>( get( "forced_hosts", forcedDef, val ) );
-@@ -214,7 +215,7 @@ public class YamlConfig implements ConfigurationAdapter
+@@ -214,7 +216,7 @@ public class YamlConfig implements ConfigurationAdapter
              }
              boolean setLocalAddress = get( "bind_local_address", true, val );
  

@@ -1,11 +1,11 @@
-From 131f214152fc8cfb8d9b7648d106ab7f126e7c43 Mon Sep 17 00:00:00 2001
+From 880722bf840b22c14a3d195216e59b810a9c7b39 Mon Sep 17 00:00:00 2001
 From: roblabla <robinlambertz.dev@gmail.com>
-Date: Fri, 6 Sep 2013 20:12:15 +0200
+Date: Thu, 12 Sep 2013 10:41:20 +0200
 Subject: [PATCH] Per-Server MOTD Configuration
 
 
 diff --git a/api/src/main/java/net/md_5/bungee/api/ProxyServer.java b/api/src/main/java/net/md_5/bungee/api/ProxyServer.java
-index 1344f77..9d631bc 100644
+index 1344f77..d085a15 100644
 --- a/api/src/main/java/net/md_5/bungee/api/ProxyServer.java
 +++ b/api/src/main/java/net/md_5/bungee/api/ProxyServer.java
 @@ -14,6 +14,7 @@ import net.md_5.bungee.api.connection.ProxiedPlayer;
@@ -16,24 +16,41 @@ index 1344f77..9d631bc 100644
  
  public abstract class ProxyServer
  {
-@@ -190,9 +191,11 @@ public abstract class ProxyServer
-      * @param address connectable Minecraft address + port of the server
-      * @param motd the motd when used as a forced server
-      * @param restricted whether the server info restricted property will be set
-+     * @param motdcount the way the current player count should be made in motd
-+     * @param maxplayers if motdcount is global, the max amount of players to show
-      * @return the constructed instance
-      */
--    public abstract ServerInfo constructServerInfo(String name, InetSocketAddress address, String motd, boolean restricted);
-+    public abstract ServerInfo constructServerInfo(String name, InetSocketAddress address, String motd, boolean restricted, Class<? extends TabListHandler> tablist, ServerInfo.MotdCount motdcount, int maxplayers );
+@@ -195,6 +196,20 @@ public abstract class ProxyServer
+     public abstract ServerInfo constructServerInfo(String name, InetSocketAddress address, String motd, boolean restricted);
  
      /**
++     * Factory method to construct an implementation specific server info
++     * instance.
++     *
++     * @param name name of the server
++     * @param address connectable Minecraft address + port of the server
++     * @param motd the motd when used as a forced server
++     * @param restricted whether the server info restricted property will be set
++     * @param motdcount the way the current player count should be made in motd
++     * @param maxplayers if motdcount is global, the max amount of players to show
++     * @return the constructed instance
++     */
++    public abstract ServerInfo constructServerInfo(String name, InetSocketAddress address, String motd, boolean restricted, Class<? extends TabListHandler> tablist, ServerInfo.MotdCount motdcount, int maxplayers );
++
++    /**
       * Returns the console overlord for this proxy. Being the console, this
+      * command server cannot have permissions or groups, and will be able to
+      * execute anything.
 diff --git a/api/src/main/java/net/md_5/bungee/api/config/ListenerInfo.java b/api/src/main/java/net/md_5/bungee/api/config/ListenerInfo.java
-index 2d07f77..1ba90f9 100644
+index 1fa28a2..f7858d8 100644
 --- a/api/src/main/java/net/md_5/bungee/api/config/ListenerInfo.java
 +++ b/api/src/main/java/net/md_5/bungee/api/config/ListenerInfo.java
-@@ -26,14 +26,6 @@ public class ListenerInfo
+@@ -30,7 +30,7 @@ public class ListenerInfo
+      */
+     public ListenerInfo( InetSocketAddress host, String motd, int maxPlayers, int tabListSize, String defaultServer, String fallbackServer, boolean forceDefault, Map<String, String> forcedHosts, Class<? extends TabListHandler> tabList, boolean setLocalAddress )
+     {
+-        this(host, false, 25565, motd, maxPlayers, tabListSize, defaultServer, fallbackServer, forceDefault, forcedHosts, tabList, setLocalAddress);
++        this(host, false, 25565, tabListSize, defaultServer, fallbackServer, forceDefault, forcedHosts, setLocalAddress);
+     }
+ 
+     /**
+@@ -46,14 +46,6 @@ public class ListenerInfo
       */
      private final int queryPort;
      /**
@@ -48,7 +65,7 @@ index 2d07f77..1ba90f9 100644
       * Number of players to be shown on the tab list.
       */
      private final int tabListSize;
-@@ -57,10 +49,6 @@ public class ListenerInfo
+@@ -77,10 +69,6 @@ public class ListenerInfo
       */
      private final Map<String, String> forcedHosts;
      /**
@@ -108,7 +125,7 @@ index fa512e3..f172ed8 100644
 +    }
  }
 diff --git a/proxy/src/main/java/net/md_5/bungee/BungeeCord.java b/proxy/src/main/java/net/md_5/bungee/BungeeCord.java
-index c4918c5..ea1bc36 100644
+index c4918c5..d897149 100644
 --- a/proxy/src/main/java/net/md_5/bungee/BungeeCord.java
 +++ b/proxy/src/main/java/net/md_5/bungee/BungeeCord.java
 @@ -55,6 +55,7 @@ import net.md_5.bungee.api.connection.ProxiedPlayer;
@@ -119,14 +136,25 @@ index c4918c5..ea1bc36 100644
  import net.md_5.bungee.command.*;
  import net.md_5.bungee.config.YamlConfig;
  import net.md_5.bungee.log.LoggingOutputStream;
-@@ -553,9 +554,9 @@ public class BungeeCord extends ProxyServer
-     }
+@@ -65,6 +66,7 @@ import net.md_5.bungee.protocol.packet.PacketFAPluginMessage;
+ import net.md_5.bungee.protocol.Vanilla;
+ import net.md_5.bungee.query.QueryServerHandler;
+ import net.md_5.bungee.tab.Custom;
++import net.md_5.bungee.tab.GlobalPing;
+ import net.md_5.bungee.util.CaseInsensitiveMap;
+ import org.fusesource.jansi.AnsiConsole;
  
+@@ -555,7 +557,13 @@ public class BungeeCord extends ProxyServer
      @Override
--    public ServerInfo constructServerInfo(String name, InetSocketAddress address, String motd, boolean restricted)
-+    public ServerInfo constructServerInfo(String name, InetSocketAddress address, String motd, boolean restricted, Class<? extends TabListHandler> tablist, ServerInfo.MotdCount motdcount, int maxplayers )
+     public ServerInfo constructServerInfo(String name, InetSocketAddress address, String motd, boolean restricted)
      {
 -        return new BungeeServerInfo( name, address, motd, restricted );
++        return this.constructServerInfo( name, address, motd, restricted, GlobalPing.class, ServerInfo.MotdCount.GLOBAL, 500 );
++    }
++
++    @Override
++    public ServerInfo constructServerInfo(String name, InetSocketAddress address, String motd, boolean restricted, Class<? extends TabListHandler> tablist, ServerInfo.MotdCount motdcount, int maxplayers )
++    {
 +        return new BungeeServerInfo( name, address, motd, restricted, motdcount, maxplayers, tablist );
      }
  
@@ -266,7 +294,7 @@ index a1105a7..43c103e 100644
      public void setTabList(TabListHandler tabList)
      {
 diff --git a/proxy/src/main/java/net/md_5/bungee/config/YamlConfig.java b/proxy/src/main/java/net/md_5/bungee/config/YamlConfig.java
-index 73376fa..de6a062 100644
+index 4702dce..de6a062 100644
 --- a/proxy/src/main/java/net/md_5/bungee/config/YamlConfig.java
 +++ b/proxy/src/main/java/net/md_5/bungee/config/YamlConfig.java
 @@ -21,6 +21,7 @@ import net.md_5.bungee.api.ProxyServer;
@@ -297,12 +325,13 @@ index 73376fa..de6a062 100644
              ret.put( name, info );
          }
  
-@@ -198,24 +206,15 @@ public class YamlConfig implements ConfigurationAdapter
+@@ -198,25 +206,15 @@ public class YamlConfig implements ConfigurationAdapter
              String host = get( "host", "0.0.0.0:25577", val );
              boolean enableQuery = get( "enableQuery", true, val );
              int queryPort = get( "queryPort", 25577, val );
 -            String motd = get( "motd", "&1Another Bungee server", val );
 -            motd = ChatColor.translateAlternateColorCodes( '&', motd );
+-
 -            int maxPlayers = get( "max_players", 1, val );
              String defaultServer = get( "default_server", "lobby", val );
              String fallbackServer = get( "fallback_server", defaultServer, val );
