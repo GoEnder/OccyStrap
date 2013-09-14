@@ -1,0 +1,236 @@
+From f6e07b8ae2fb983459493eb9567571f4c33b52dd Mon Sep 17 00:00:00 2001
+From: roblabla <robinlambertz.dev@gmail.com>
+Date: Sat, 14 Sep 2013 14:54:27 +0200
+Subject: [PATCH] TabComplete API
+
+
+diff --git a/api/src/main/java/net/md_5/bungee/api/plugin/PluginManager.java b/api/src/main/java/net/md_5/bungee/api/plugin/PluginManager.java
+index d354565..daefaba 100644
+--- a/api/src/main/java/net/md_5/bungee/api/plugin/PluginManager.java
++++ b/api/src/main/java/net/md_5/bungee/api/plugin/PluginManager.java
+@@ -117,6 +117,28 @@ public class PluginManager
+     }
+ 
+     /**
++     * Returns command registered
++     *
++     * @param cmd to look for
++     * @return the command registered
++     */
++    public Command getCommand(String cmd)
++    {
++        return commandMap.get( cmd );
++    }
++
++    /**
++     * Returns an array of registered command names
++     * 
++     * @return Array of String representing the registered command names.
++     */
++
++    public String[] getRegisteredCommands()
++    {
++        return commandMap.keySet().toArray( new String[commandMap.keySet().size()] );
++    }
++
++    /**
+      * Returns the {@link Plugin} objects corresponding to all loaded plugins.
+      *
+      * @return the set of loaded plugins
+diff --git a/api/src/main/java/net/md_5/bungee/api/plugin/TabExecutor.java b/api/src/main/java/net/md_5/bungee/api/plugin/TabExecutor.java
+new file mode 100644
+index 0000000..549416d
+--- /dev/null
++++ b/api/src/main/java/net/md_5/bungee/api/plugin/TabExecutor.java
+@@ -0,0 +1,10 @@
++package net.md_5.bungee.api.plugin;
++
++import net.md_5.bungee.api.CommandSender;
++
++import java.util.List;
++
++public interface TabExecutor
++{
++    public List<String> onTabComplete(CommandSender sender, String[] args);
++}
+diff --git a/protocol/src/main/java/net/md_5/bungee/protocol/Vanilla.java b/protocol/src/main/java/net/md_5/bungee/protocol/Vanilla.java
+index df3bf21..7010f17 100644
+--- a/protocol/src/main/java/net/md_5/bungee/protocol/Vanilla.java
++++ b/protocol/src/main/java/net/md_5/bungee/protocol/Vanilla.java
+@@ -5,6 +5,7 @@ import java.lang.reflect.Constructor;
+ import java.lang.reflect.InvocationTargetException;
+ import lombok.Getter;
+ import static net.md_5.bungee.protocol.OpCode.*;
++
+ import net.md_5.bungee.protocol.packet.DefinedPacket;
+ import net.md_5.bungee.protocol.packet.Packet0KeepAlive;
+ import net.md_5.bungee.protocol.packet.Packet1Login;
+@@ -13,6 +14,7 @@ import net.md_5.bungee.protocol.packet.Packet2Handshake;
+ import net.md_5.bungee.protocol.packet.Packet3Chat;
+ import net.md_5.bungee.protocol.packet.Packet9Respawn;
+ import net.md_5.bungee.protocol.packet.PacketC9PlayerListItem;
++import net.md_5.bungee.protocol.packet.PacketCBTabComplete;
+ import net.md_5.bungee.protocol.packet.PacketCCSettings;
+ import net.md_5.bungee.protocol.packet.PacketCDClientStatus;
+ import net.md_5.bungee.protocol.packet.PacketCEScoreboardObjective;
+@@ -56,6 +58,7 @@ public class Vanilla implements Protocol
+         classes[0xC9] = PacketC9PlayerListItem.class;
+         classes[0x2C] = Packet2CEntityProperties.class;
+         classes[0xCC] = PacketCCSettings.class;
++        classes[0xCB] = PacketCBTabComplete.class;
+         classes[0xCD] = PacketCDClientStatus.class;
+         classes[0xCE] = PacketCEScoreboardObjective.class;
+         classes[0xCF] = PacketCFScoreboardScore.class;
+diff --git a/protocol/src/main/java/net/md_5/bungee/protocol/packet/AbstractPacketHandler.java b/protocol/src/main/java/net/md_5/bungee/protocol/packet/AbstractPacketHandler.java
+index 795661f..7c2cf69 100644
+--- a/protocol/src/main/java/net/md_5/bungee/protocol/packet/AbstractPacketHandler.java
++++ b/protocol/src/main/java/net/md_5/bungee/protocol/packet/AbstractPacketHandler.java
+@@ -74,4 +74,8 @@ public abstract class AbstractPacketHandler
+     public void handle(PacketFFKick kick) throws Exception
+     {
+     }
++
++    public void handle(PacketCBTabComplete tabComplete) throws Exception
++    {
++    }
+ }
+diff --git a/protocol/src/main/java/net/md_5/bungee/protocol/packet/PacketCBTabComplete.java b/protocol/src/main/java/net/md_5/bungee/protocol/packet/PacketCBTabComplete.java
+new file mode 100644
+index 0000000..8ed0b4d
+--- /dev/null
++++ b/protocol/src/main/java/net/md_5/bungee/protocol/packet/PacketCBTabComplete.java
+@@ -0,0 +1,54 @@
++package net.md_5.bungee.protocol.packet;
++
++import io.netty.buffer.ByteBuf;
++import lombok.EqualsAndHashCode;
++import lombok.Getter;
++import lombok.Setter;
++import lombok.ToString;
++
++@Getter
++@Setter
++@ToString
++@EqualsAndHashCode(callSuper = false)
++public class PacketCBTabComplete extends DefinedPacket {
++
++    public String[] commands;
++
++    private PacketCBTabComplete()
++    {
++        super ( 0xCB );
++    }
++
++    public PacketCBTabComplete( String[] alternatives )
++    {
++        this();
++        commands = alternatives;
++    }
++
++    @Override
++    public void read(ByteBuf buf) {
++        commands = new String[1];
++        commands[0] = readString( buf );
++    }
++
++    @Override
++    public void write(ByteBuf buf) {
++        String tab = "";
++        for ( String alternative : commands )
++        {
++            if ( tab.isEmpty() )
++            {
++                tab = alternative + " ";
++            } else
++            {
++                tab += "\0" + alternative + " ";
++            }
++        }
++        writeString( tab, buf );
++    }
++
++    @Override
++    public void handle(AbstractPacketHandler handler) throws Exception {
++        handler.handle( this );
++    }
++}
+diff --git a/proxy/src/main/java/net/md_5/bungee/connection/UpstreamBridge.java b/proxy/src/main/java/net/md_5/bungee/connection/UpstreamBridge.java
+index 819dd12..d545b84 100644
+--- a/proxy/src/main/java/net/md_5/bungee/connection/UpstreamBridge.java
++++ b/proxy/src/main/java/net/md_5/bungee/connection/UpstreamBridge.java
+@@ -5,17 +5,24 @@ import net.md_5.bungee.EntityMap;
+ import net.md_5.bungee.UserConnection;
+ import net.md_5.bungee.Util;
+ import net.md_5.bungee.api.ProxyServer;
++import net.md_5.bungee.api.connection.ProxiedPlayer;
+ import net.md_5.bungee.api.event.ChatEvent;
+ import net.md_5.bungee.api.event.PlayerDisconnectEvent;
+ import net.md_5.bungee.api.event.PluginMessageEvent;
++import net.md_5.bungee.api.plugin.Command;
++import net.md_5.bungee.api.plugin.TabExecutor;
+ import net.md_5.bungee.netty.ChannelWrapper;
+ import net.md_5.bungee.netty.PacketHandler;
+ import net.md_5.bungee.netty.PacketWrapper;
+ import net.md_5.bungee.protocol.packet.Packet0KeepAlive;
+ import net.md_5.bungee.protocol.packet.Packet3Chat;
++import net.md_5.bungee.protocol.packet.PacketCBTabComplete;
+ import net.md_5.bungee.protocol.packet.PacketCCSettings;
+ import net.md_5.bungee.protocol.packet.PacketFAPluginMessage;
+ 
++import java.util.ArrayList;
++import java.util.List;
++
+ public class UpstreamBridge extends PacketHandler
+ {
+ 
+@@ -89,6 +96,47 @@ public class UpstreamBridge extends PacketHandler
+     }
+ 
+     @Override
++    public void handle(PacketCBTabComplete tabComplete) throws Exception
++    {
++        if ( tabComplete.getCommands()[0].startsWith("/") && tabComplete.getCommands()[0].contains( " " ) )
++        {
++            String cmd = tabComplete.getCommands()[0].substring( 1, tabComplete.getCommands()[0].indexOf( " " ) );
++            if ( tabComplete.getCommands()[0].length() > tabComplete.getCommands()[0].indexOf( " " ) )
++            {
++                String[] args = tabComplete.getCommands()[0].substring( tabComplete.getCommands()[0].indexOf( " " ) + 1 ).split ( " " );
++                Command command = bungee.getPluginManager().getCommand( cmd );
++                if ( command != null )
++                {
++                    List<String> result = new ArrayList<String>();
++                    if ( command instanceof TabExecutor )
++                    {
++                        TabExecutor tabExecutor = (TabExecutor) command;
++                        result.addAll( tabExecutor.onTabComplete( con, args ) );
++                    } else
++                    {
++                        if ( args.length > 0 )
++                        {
++                            String playerToCheck = args[args.length - 1];
++                            if ( playerToCheck.length() > 0 )
++                            {
++                                for ( ProxiedPlayer player : bungee.getPlayers() )
++                                {
++                                    if ( player.getName().substring( 0, playerToCheck.length() ).equalsIgnoreCase( playerToCheck ) )
++                                    {
++                                        result.add( player.getName() );
++                                    }
++                                }
++                            }
++                        }
++                    }
++                    con.unsafe().sendPacket( new PacketCBTabComplete( result.toArray( new String[ result.size() ] ) ) );
++                    throw new CancelSendSignal();
++                }
++            }
++        }
++    }
++
++    @Override
+     public void handle(PacketCCSettings settings) throws Exception
+     {
+         con.setSettings( settings );
+-- 
+1.7.9
+
